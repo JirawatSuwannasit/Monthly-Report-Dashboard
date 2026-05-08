@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reliability Test Laboratory — Monthly Report Dashboard</title>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Apache ECharts 5 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+
+  <!-- PapaParse CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+    /* Loading spinner animation */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #e2e8f0;
+      border-top-color: #005BAB;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
+
+    /* Native select arrow replacement */
+    .filter-select {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236b7280'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 16px;
+      padding-right: 2rem;
+    }
+
+    /* KPI value text */
+    .kpi-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    /* Chart card base */
+    .chart-card {
+      background: #ffffff;
+      border-radius: 0.625rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.05);
+      padding: 1.25rem 1.375rem;
+    }
+    .chart-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin: 0;
+    }
+    .chart-subtitle {
+      font-size: 0.7rem;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- ── LOADING OVERLAY ─────────────────────────────────────── -->
+  <div id="loading-overlay"
+       class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-50 gap-4">
+    <div class="spinner"></div>
+    <p class="text-sm text-slate-500 font-medium">Loading dashboard data&hellip;</p>
+    <p class="text-xs text-slate-400">Fetching CSV files from GitHub</p>
+  </div>
+
+  <!-- ── ERROR BANNER ────────────────────────────────────────── -->
+  <div id="error-banner"
+       class="hidden fixed top-0 left-0 right-0 z-40 bg-red-600 text-white px-5 py-3 text-sm font-medium shadow-lg flex items-center gap-3">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+    </svg>
+    <span id="error-message">Failed to load data. Please check your connection and refresh.</span>
+    <button onclick="location.reload()" class="ml-auto underline text-red-100 hover:text-white shrink-0">Retry</button>
+  </div>
+
+  <!-- ── MAIN APP (hidden until data ready) ─────────────────── -->
+  <div id="app" class="hidden">
+
+    <!-- TOP HEADER -->
+    <header style="background: linear-gradient(135deg, #003d7a 0%, #005BAB 55%, #0073d1 100%);"
+            class="text-white px-6 py-4 shadow-lg">
+      <div class="max-w-screen-2xl mx-auto flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
+            </svg>
+            <h1 class="text-lg font-bold tracking-tight">Reliability Test Laboratory</h1>
+          </div>
+          <p class="text-blue-200 text-xs mt-1 font-medium pl-8">
+            Monthly Report Dashboard &mdash; Cost Saving &amp; Machine Utilization
+          </p>
+        </div>
+        <div class="text-right hidden sm:block">
+          <p id="data-range-label" class="text-blue-200 text-xs font-medium"></p>
+          <p class="text-blue-300 text-xs mt-0.5">
+            Last updated: <span id="last-updated-label" class="font-semibold text-white"></span>
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="max-w-screen-2xl mx-auto px-4 py-5 space-y-5">
+
+      <!-- ── GLOBAL FILTER BAR ──────────────────────────────── -->
+      <section class="bg-white rounded-xl shadow-sm border border-slate-100 px-4 py-3 flex flex-wrap gap-3 items-end">
+        <!-- Label -->
+        <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider self-center mr-1">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.447.894l-4 2.5A1 1 0 016 17.5v-6.086L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
+          </svg>
+          Global Filters
+        </div>
+
+        <!-- FY filter -->
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-slate-500">Fiscal Year</label>
+          <select id="filter-fy"
+                  class="filter-select text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[118px] cursor-pointer">
+            <option value="All">All FY</option>
+          </select>
+        </div>
+
+        <!-- Month filter -->
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-slate-500">Month</label>
+          <select id="filter-month"
+                  class="filter-select text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[118px] cursor-pointer">
+            <option value="All">All Months</option>
+          </select>
+        </div>
+
+        <!-- MC filter -->
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-slate-500">Machine Category</label>
+          <select id="filter-mc"
+                  class="filter-select text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px] cursor-pointer">
+            <option value="All">All Categories</option>
+          </select>
+        </div>
+
+        <!-- Reset -->
+        <button id="btn-reset"
+                class="ml-auto flex items-center gap-1.5 text-sm font-medium px-4 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-700 transition-all">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+          </svg>
+          Reset
+        </button>
+      </section>
+
+      <!-- ── KPI SUMMARY CARDS ──────────────────────────────── -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 border-l-[5px]"
+             style="border-left-color: #005BAB;">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Cost Saving</p>
+          <p id="val-cost-saving" class="kpi-value mt-1.5" style="color:#005BAB;">—</p>
+          <p class="text-xs text-slate-400 mt-1">THB</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 border-l-[5px]"
+             style="border-left-color: #F97316;">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Testing Jobs</p>
+          <p id="val-jobs" class="kpi-value mt-1.5" style="color:#F97316;">—</p>
+          <p class="text-xs text-slate-400 mt-1">Jobs</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 border-l-[5px]"
+             style="border-left-color: #10B981;">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Total Operating Hours</p>
+          <p id="val-hours" class="kpi-value mt-1.5" style="color:#10B981;">—</p>
+          <p class="text-xs text-slate-400 mt-1">Hours</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-4 border-l-[5px]"
+             style="border-left-color: #8B5CF6;">
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Avg Machine Utilization</p>
+          <p id="val-util" class="kpi-value mt-1.5" style="color:#8B5CF6;">—</p>
+          <p class="text-xs text-slate-400 mt-1">%</p>
+        </div>
+
+      </section>
+
+      <!-- ── CHARTS GRID ─────────────────────────────────────── -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        <!-- 3.1 Cost Contribution Combo Chart (full width) -->
+        <div class="chart-card lg:col-span-2">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+            <div>
+              <h2 class="chart-title">Monthly Cost Contribution</h2>
+              <p class="chart-subtitle">Bars: monthly contribution per FY &nbsp;|&nbsp; Dashed lines: cumulative sum (right axis)</p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex flex-col gap-0.5">
+                <label class="text-[10px] font-medium text-slate-400">Compare FY 1</label>
+                <select id="combo-fy1"
+                        class="filter-select text-xs border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[95px] cursor-pointer">
+                </select>
+              </div>
+              <span class="text-slate-300 font-bold text-sm self-end pb-1">vs</span>
+              <div class="flex flex-col gap-0.5">
+                <label class="text-[10px] font-medium text-slate-400">Compare FY 2</label>
+                <select id="combo-fy2"
+                        class="filter-select text-xs border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[95px] cursor-pointer">
+                </select>
+              </div>
+            </div>
+          </div>
+          <div id="chart-combo" style="height:390px;"></div>
+        </div>
+
+        <!-- 3.2 Cost Saving by MC (half width) -->
+        <div class="chart-card">
+          <h2 class="chart-title">Cost Saving by Machine Category</h2>
+          <p class="chart-subtitle mb-3">Filtered by global FY / Month / MC selectors</p>
+          <div id="chart-mc-cost" style="height:320px;"></div>
+        </div>
+
+        <!-- 3.3 Jobs by MC (half width) -->
+        <div class="chart-card">
+          <h2 class="chart-title">Testing Jobs by Machine Category</h2>
+          <p class="chart-subtitle mb-3">Filtered by global FY / Month / MC selectors</p>
+          <div id="chart-mc-jobs" style="height:320px;"></div>
+        </div>
+
+        <!-- 3.4 Machine Utilization Heatmap (full width) -->
+        <div class="chart-card lg:col-span-2">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+            <div>
+              <h2 class="chart-title">Machine Utilization Heatmap</h2>
+              <p class="chart-subtitle">Operation rate (%) per machine per month &nbsp;|&nbsp; Color: red (0%) &rarr; green (100%)</p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex flex-col gap-0.5">
+                <label class="text-[10px] font-medium text-slate-400">Fiscal Year</label>
+                <select id="heatmap-fy"
+                        class="filter-select text-xs border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[95px] cursor-pointer">
+                </select>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <label class="text-[10px] font-medium text-slate-400">Machine</label>
+                <select id="heatmap-machine"
+                        class="filter-select text-xs border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px] cursor-pointer">
+                  <option value="All">All Machines</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div id="chart-heatmap" style="height:420px;"></div>
+        </div>
+
+      </section>
+
+      <!-- FOOTER -->
+      <footer class="text-center text-xs text-slate-400 py-4">
+        Reliability Test Laboratory &mdash; Monthly Report Dashboard &bull; Data sourced from GitHub CSV files
+      </footer>
+
+    </main>
+  </div><!-- /#app -->
+
+
+  <!-- ============================================================
+       JAVASCRIPT — All code in English only
+  ============================================================ -->
+  <script>
+  (function () {
+    'use strict';
+
+    // ── CONSTANTS ────────────────────────────────────────────────
+    // Fiscal year starts in April, so months are ordered APR → MAR
+    const FISCAL_MONTH_ORDER = ['APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR'];
+
+    // Full month names as they appear in the CSV MONTH column → abbreviation
+    const MONTH_NAME_TO_ABBR = {
+      'April':'APR','May':'MAY','June':'JUN','July':'JUL',
+      'August':'AUG','September':'SEP','October':'OCT',
+      'November':'NOV','December':'DEC','January':'JAN',
+      'February':'FEB','March':'MAR',
+      // Handle abbreviated forms too, in case data varies
+      'APR':'APR','MAY':'MAY','JUN':'JUN','JUL':'JUL','AUG':'AUG',
+      'SEP':'SEP','OCT':'OCT','NOV':'NOV','DEC':'DEC',
+      'JAN':'JAN','FEB':'FEB','MAR':'MAR',
+    };
+
+    // Preferred sort order for machine categories in the heatmap rows
+    const MC_ORDER = ['TE','TS','TH','TENSILE','VI','CMM','DURA','CHILLER'];
+
+    // Chart color palette
+    const COLORS = {
+      blue:    '#005BAB',
+      orange:  '#F97316',
+      emerald: '#10B981',
+      purple:  '#8B5CF6',
+      red:     '#EF4444',
+      teal:    '#14B8A6',
+      amber:   '#F59E0B',
+      pink:    '#EC4899',
+    };
+    const PALETTE = Object.values(COLORS);
+
+    // Raw GitHub URLs for the two CSV data files on this branch
+    const CSV_URLS = {
+      cost: 'https://raw.githubusercontent.com/jirawatsuwannasit/monthly-report-dashboard/claude/reliability-lab-dashboard-2KEC9/Cost%20saving%20database.csv',
+      util: 'https://raw.githubusercontent.com/jirawatsuwannasit/monthly-report-dashboard/claude/reliability-lab-dashboard-2KEC9/Machine%20utillize%20database.csv',
+    };
+
+    // ── APPLICATION STATE ────────────────────────────────────────
+    const state = {
+      rawCost: [],        // parsed rows from Cost saving database.csv
+      rawUtil: [],        // parsed rows from Machine utillize database.csv
+      filters: { fy: 'All', month: 'All', mc: 'All' },
+      comboFY1: null,     // left FY for combo chart comparison
+      comboFY2: null,     // right FY for combo chart comparison
+      heatmapFY: null,    // FY displayed in the heatmap
+      heatmapMachine: 'All', // machine filter for heatmap
+      charts: {
+        combo:   null,    // ECharts instance for combo chart
+        mcCost:  null,    // ECharts instance for MC cost chart
+        mcJobs:  null,    // ECharts instance for MC jobs chart
+        heatmap: null,    // ECharts instance for heatmap
+      },
+    };
+
+    // ── UI HELPERS ───────────────────────────────────────────────
+    function showLoading() {
+      document.getElementById('loading-overlay').classList.remove('hidden');
+    }
+    function hideLoading() {
+      document.getElementById('loading-overlay').classList.add('hidden');
+    }
+    function showApp() {
+      document.getElementById('app').classList.remove('hidden');
+    }
+    function showError(msg) {
+      document.getElementById('error-message').textContent = msg;
+      document.getElementById('error-banner').classList.remove('hidden');
+      hideLoading();
+    }
+
+    // ── NUMBER FORMATTING ────────────────────────────────────────
+    function formatLargeNumber(v) {
+      if (v == null || isNaN(v)) return '—';
+      if (v >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+      if (v >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+      if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+      return Math.round(v).toString();
+    }
+    function formatInteger(v) {
+      if (v == null || isNaN(v)) return '—';
+      return new Intl.NumberFormat('en-US').format(Math.round(v));
+    }
+    function formatCurrencyFull(v) {
+      if (v == null || isNaN(v)) return '—';
+      return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(v)) + ' THB';
+    }
+
+    // ── CSV PARSING ──────────────────────────────────────────────
+    function parseCSV(text, type) {
+      const result = Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: h => h.trim(),
+      });
+
+      return result.data.map(rawRow => {
+        // Trim every string field to remove leading/trailing whitespace
+        const row = {};
+        Object.keys(rawRow).forEach(k => {
+          const key = k.trim();
+          row[key] = typeof rawRow[k] === 'string' ? rawRow[k].trim() : rawRow[k];
+        });
+
+        if (type === 'cost') {
+          row.HOUR = parseFloat(row.HOUR) || 0;
+          row.CYCLE = (row.CYCLE === 'NA' || row.CYCLE === '' || row.CYCLE == null)
+            ? null : parseInt(row.CYCLE, 10);
+          row.JOB  = parseInt(row.JOB, 10) || 0;
+          row.COST = parseFloat(row.COST) || 0;
+          row.COST_CONTRIBUTION = parseFloat(row.COST_CONTRIBUTION) || 0;
+          // Normalize MONTH column to 3-letter fiscal abbreviation
+          row.MONTH_ABBR = MONTH_NAME_TO_ABBR[row.MONTH] || row.MONTH;
+        } else {
+          // Strip trailing '%' if present, then parse as float
+          const rateStr = String(row.OPERATION_RATE || '').replace('%', '').trim();
+          row.OPERATION_RATE = parseFloat(rateStr);
+          if (isNaN(row.OPERATION_RATE)) row.OPERATION_RATE = null;
+          row.MONTH_ABBR = MONTH_NAME_TO_ABBR[row.MONTH] || row.MONTH;
+        }
+
+        return row;
+      });
+    }
+
+    // ── DATA LOADING ─────────────────────────────────────────────
+    async function loadAllData() {
+      showLoading();
+      try {
+        const [costRes, utilRes] = await Promise.all([
+          fetch(CSV_URLS.cost),
+          fetch(CSV_URLS.util),
+        ]);
+
+        if (!costRes.ok) throw new Error('Cost saving CSV fetch failed (HTTP ' + costRes.status + ')');
+        if (!utilRes.ok) throw new Error('Machine utilization CSV fetch failed (HTTP ' + utilRes.status + ')');
+
+        const [costText, utilText] = await Promise.all([costRes.text(), utilRes.text()]);
+
+        state.rawCost = parseCSV(costText, 'cost');
+        state.rawUtil = parseCSV(utilText, 'util');
+
+        if (state.rawCost.length === 0) throw new Error('Cost saving CSV parsed with 0 rows.');
+        if (state.rawUtil.length === 0) throw new Error('Machine utilization CSV parsed with 0 rows.');
+
+        initDashboard();
+      } catch (err) {
+        showError('Data load failed: ' + err.message);
+        console.error(err);
+      }
+    }
+
+    // ── INITIALIZATION ───────────────────────────────────────────
+    function initDashboard() {
+      // Derive sorted FY lists from each dataset
+      const costFYs = [...new Set(state.rawCost.map(r => r.FY))].filter(Boolean).sort();
+      const utilFYs = [...new Set(state.rawUtil.map(r => r.FY))].filter(Boolean).sort();
+
+      // Combo chart defaults: the two most recent fiscal years in cost data
+      state.comboFY1 = costFYs.length >= 2 ? costFYs[costFYs.length - 2] : costFYs[0];
+      state.comboFY2 = costFYs[costFYs.length - 1];
+
+      // Heatmap defaults: latest FY in utilization data
+      state.heatmapFY = utilFYs[utilFYs.length - 1];
+
+      // Populate header meta labels
+      const dates = state.rawCost.map(r => r.DATE).filter(Boolean).sort();
+      if (dates.length > 0) {
+        document.getElementById('data-range-label').textContent =
+          'Data range: ' + dates[0] + ' — ' + dates[dates.length - 1];
+      }
+      document.getElementById('last-updated-label').textContent =
+        new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      // Populate all dropdown selectors
+      populateFilters(costFYs);
+      populateComboFYSelectors(costFYs);
+      populateHeatmapFYSelector(utilFYs);
+      populateHeatmapMachineSelector();
+
+      // First render of all charts and KPIs
+      renderAll();
+
+      // Show app and hide spinner
+      hideLoading();
+      showApp();
+
+      // Wire up all event listeners
+      attachEventListeners();
+    }
+
+    // ── FILTER POPULATION ────────────────────────────────────────
+    function populateFilters(fyList) {
+      // FY dropdown
+      const fySelect = document.getElementById('filter-fy');
+      fyList.forEach(fy => {
+        const opt = document.createElement('option');
+        opt.value = fy;
+        opt.textContent = fy.replace('_', ' ');
+        fySelect.appendChild(opt);
+      });
+
+      // Month dropdown in fiscal year order
+      const monthSelect = document.getElementById('filter-month');
+      FISCAL_MONTH_ORDER.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        monthSelect.appendChild(opt);
+      });
+
+      // Machine category dropdown, sorted alphabetically
+      const mcSelect = document.getElementById('filter-mc');
+      const mcs = [...new Set(state.rawCost.map(r => r.MC))].filter(Boolean).sort();
+      mcs.forEach(mc => {
+        const opt = document.createElement('option');
+        opt.value = mc;
+        opt.textContent = mc;
+        mcSelect.appendChild(opt);
+      });
+    }
+
+    function populateComboFYSelectors(fyList) {
+      ['combo-fy1', 'combo-fy2'].forEach((id, idx) => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = '';
+        fyList.forEach(fy => {
+          const opt = document.createElement('option');
+          opt.value = fy;
+          opt.textContent = fy.replace('_', ' ');
+          sel.appendChild(opt);
+        });
+        sel.value = idx === 0 ? state.comboFY1 : state.comboFY2;
+      });
+    }
+
+    function populateHeatmapFYSelector(fyList) {
+      const sel = document.getElementById('heatmap-fy');
+      sel.innerHTML = '';
+      fyList.forEach(fy => {
+        const opt = document.createElement('option');
+        opt.value = fy;
+        opt.textContent = fy.replace('_', ' ');
+        sel.appendChild(opt);
+      });
+      sel.value = state.heatmapFY;
+    }
+
+    function populateHeatmapMachineSelector() {
+      const sel = document.getElementById('heatmap-machine');
+      sel.innerHTML = '<option value="All">All Machines</option>';
+      const machines = [...new Set(
+        state.rawUtil
+          .filter(r => r.FY === state.heatmapFY)
+          .map(r => r.MACHINE_NO)
+      )].filter(Boolean).sort();
+      machines.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m;
+        opt.textContent = m;
+        sel.appendChild(opt);
+      });
+      // Reset machine filter to All whenever FY changes
+      sel.value = 'All';
+      state.heatmapMachine = 'All';
+    }
+
+    // ── DATA FILTERING ───────────────────────────────────────────
+    // Returns cost rows respecting the three global filters
+    function getFilteredCost() {
+      return state.rawCost.filter(r => {
+        if (state.filters.fy    !== 'All' && r.FY         !== state.filters.fy)    return false;
+        if (state.filters.month !== 'All' && r.MONTH_ABBR !== state.filters.month) return false;
+        if (state.filters.mc    !== 'All' && r.MC         !== state.filters.mc)    return false;
+        return true;
+      });
+    }
+
+    // Returns util rows respecting FY and Month global filters (MC not applicable to util data)
+    function getFilteredUtil() {
+      return state.rawUtil.filter(r => {
+        if (state.filters.fy    !== 'All' && r.FY         !== state.filters.fy)    return false;
+        if (state.filters.month !== 'All' && r.MONTH_ABBR !== state.filters.month) return false;
+        return true;
+      });
+    }
+
+    // Returns all cost rows for one specific FY, ignoring global filters (for combo chart)
+    function getCostForCombo(fy) {
+      return state.rawUtil.length && fy ? state.rawCost.filter(r => r.FY === fy) : [];
+    }
+
+    // Returns util rows filtered by heatmap-specific FY and machine selectors
+    function getUtilForHeatmap() {
+      return state.rawUtil.filter(r => {
+        if (r.FY !== state.heatmapFY) return false;
+        if (state.heatmapMachine !== 'All' && r.MACHINE_NO !== state.heatmapMachine) return false;
+        return true;
+      });
+    }
+
+    // ── AGGREGATION HELPERS ──────────────────────────────────────
+    // Groups rows by MONTH_ABBR and sums the given numeric field
+    function aggregateByMonth(rows, field) {
+      const totals = {};
+      rows.forEach(r => {
+        const m = r.MONTH_ABBR;
+        if (!m) return;
+        totals[m] = (totals[m] || 0) + (r[field] || 0);
+      });
+      return totals;
+    }
+
+    // Converts month totals to a 12-element array aligned to FISCAL_MONTH_ORDER (0 for missing)
+    function buildMonthlyArray(monthlyTotals) {
+      return FISCAL_MONTH_ORDER.map(m => monthlyTotals[m] || 0);
+    }
+
+    // Builds cumulative sum array; months beyond last available data point return null
+    // so ECharts does not draw a misleading flat trailing line segment
+    function buildCumulativeByMonth(monthlyTotals) {
+      let lastDataIdx = -1;
+      FISCAL_MONTH_ORDER.forEach((m, i) => {
+        if (monthlyTotals[m] !== undefined) lastDataIdx = i;
+      });
+      let running = 0;
+      return FISCAL_MONTH_ORDER.map((m, i) => {
+        if (i > lastDataIdx) return null;
+        running += (monthlyTotals[m] || 0);
+        return running;
+      });
+    }
+
+    // Groups rows by MC and sums a numeric field; returns array sorted descending by value
+    function aggregateByMC(rows, field) {
+      const totals = {};
+      rows.forEach(r => {
+        const mc = r.MC;
+        if (!mc) return;
+        totals[mc] = (totals[mc] || 0) + (r[field] || 0);
+      });
+      return Object.entries(totals)
+        .map(([mc, value]) => ({ mc, value }))
+        .sort((a, b) => b.value - a.value);
+    }
+
+    // Builds the heatmap data matrix: [xIndex (month), yIndex (machine), rate]
+    function buildHeatmapMatrix(rows) {
+      // Build machine → category mapping for sort priority
+      const machineToMC = {};
+      rows.forEach(r => { if (r.MACHINE_NO) machineToMC[r.MACHINE_NO] = r.MC; });
+
+      const machines = [...new Set(rows.map(r => r.MACHINE_NO))].filter(Boolean);
+
+      // Sort machines: first by MC_ORDER group index, then alphabetically within group
+      machines.sort((a, b) => {
+        const idxA = MC_ORDER.indexOf(machineToMC[a]);
+        const idxB = MC_ORDER.indexOf(machineToMC[b]);
+        const pa = idxA >= 0 ? idxA : 999;
+        const pb = idxB >= 0 ? idxB : 999;
+        if (pa !== pb) return pa - pb;
+        return a.localeCompare(b);
+      });
+
+      // Build lookup table: machine → month → operation rate
+      const lookup = {};
+      rows.forEach(r => {
+        if (!r.MACHINE_NO || !r.MONTH_ABBR) return;
+        if (!lookup[r.MACHINE_NO]) lookup[r.MACHINE_NO] = {};
+        lookup[r.MACHINE_NO][r.MONTH_ABBR] = r.OPERATION_RATE;
+      });
+
+      // Emit [monthIdx, machineIdx, rate] triples; skip null entries (no cell rendered)
+      const data = [];
+      machines.forEach((machine, mi) => {
+        FISCAL_MONTH_ORDER.forEach((month, moi) => {
+          const val = lookup[machine] && lookup[machine][month] != null
+            ? lookup[machine][month]
+            : null;
+          if (val !== null) data.push([moi, mi, val]);
+        });
+      });
+
+      return { machines, months: FISCAL_MONTH_ORDER, data };
+    }
+
+    // ── KPI RENDERING ────────────────────────────────────────────
+    function renderKPIs(filteredCost, filteredUtil) {
+      const totalCostSaving = filteredCost.reduce((s, r) => s + r.COST_CONTRIBUTION, 0);
+      const totalJobs       = filteredCost.reduce((s, r) => s + r.JOB,              0);
+      const totalHours      = filteredCost.reduce((s, r) => s + r.HOUR,             0);
+
+      const validUtil = filteredUtil.filter(r => r.OPERATION_RATE != null && !isNaN(r.OPERATION_RATE));
+      const avgUtil = validUtil.length > 0
+        ? validUtil.reduce((s, r) => s + r.OPERATION_RATE, 0) / validUtil.length
+        : null;
+
+      document.getElementById('val-cost-saving').textContent = formatLargeNumber(totalCostSaving);
+      document.getElementById('val-jobs').textContent        = formatInteger(totalJobs);
+      document.getElementById('val-hours').textContent       = formatLargeNumber(totalHours);
+      document.getElementById('val-util').textContent        = avgUtil != null ? avgUtil.toFixed(1) : '—';
+    }
+
+    // ── CHART RENDERING ──────────────────────────────────────────
+
+    function renderComboChart() {
+      const rows1 = getCostForCombo(state.comboFY1);
+      const rows2 = getCostForCombo(state.comboFY2);
+
+      const monthly1 = aggregateByMonth(rows1, 'COST_CONTRIBUTION');
+      const monthly2 = aggregateByMonth(rows2, 'COST_CONTRIBUTION');
+
+      const barData1  = buildMonthlyArray(monthly1);
+      const barData2  = buildMonthlyArray(monthly2);
+      const cumData1  = buildCumulativeByMonth(monthly1);
+      const cumData2  = buildCumulativeByMonth(monthly2);
+
+      const fy1Label = (state.comboFY1 || '—').replace('_', ' ');
+      const fy2Label = (state.comboFY2 || '—').replace('_', ' ');
+
+      const option = {
+        animation: true,
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'cross', crossStyle: { color: '#94a3b8' } },
+          backgroundColor: 'rgba(255,255,255,0.97)',
+          borderColor: '#e2e8f0',
+          borderWidth: 1,
+          padding: 12,
+          textStyle: { color: '#1e293b', fontSize: 12 },
+          formatter: params => {
+            const month = params[0] ? params[0].axisValueLabel : '';
+            let html = `<div style="font-weight:600;margin-bottom:6px;color:#1e293b">${month}</div>`;
+            params.forEach(p => {
+              const val = p.value != null ? formatLargeNumber(p.value) + ' THB' : '—';
+              html += `<div style="color:${p.color};margin:2px 0">● ${p.seriesName}: <strong>${val}</strong></div>`;
+            });
+            return html;
+          },
+        },
+        legend: {
+          data: [
+            fy1Label + ' Monthly', fy2Label + ' Monthly',
+            fy1Label + ' Cumulative', fy2Label + ' Cumulative',
+          ],
+          bottom: 4,
+          textStyle: { fontSize: 11, color: '#64748b' },
+          itemGap: 18,
+          icon: 'roundRect',
+        },
+        grid: { left: 70, right: 72, bottom: 60, top: 14 },
+        xAxis: {
+          type: 'category',
+          data: FISCAL_MONTH_ORDER,
+          axisLabel: { color: '#64748b', fontSize: 11 },
+          axisLine: { lineStyle: { color: '#e2e8f0' } },
+          axisTick: { show: false },
+        },
+        yAxis: [
+          {
+            type: 'value',
+            name: 'Contribution (THB)',
+            nameTextStyle: { color: COLORS.blue, fontSize: 10, padding: [0, 0, 4, 0] },
+            axisLabel: { color: '#94a3b8', fontSize: 10, formatter: v => formatLargeNumber(v) },
+            splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+            axisLine: { show: false },
+            axisTick: { show: false },
+          },
+          {
+            type: 'value',
+            name: 'Cumulative (THB)',
+            nameTextStyle: { color: COLORS.orange, fontSize: 10, padding: [0, 0, 4, 0] },
+            axisLabel: { color: '#94a3b8', fontSize: 10, formatter: v => formatLargeNumber(v) },
+            splitLine: { show: false },
+            axisLine: { show: false },
+            axisTick: { show: false },
+          },
+        ],
+        series: [
+          {
+            name: fy1Label + ' Monthly',
+            type: 'bar',
+            yAxisIndex: 0,
+            data: barData1,
+            itemStyle: { color: COLORS.blue, borderRadius: [3,3,0,0] },
+            barGap: '8%',
+            barCategoryGap: '38%',
+          },
+          {
+            name: fy2Label + ' Monthly',
+            type: 'bar',
+            yAxisIndex: 0,
+            data: barData2,
+            itemStyle: { color: COLORS.emerald, borderRadius: [3,3,0,0] },
+          },
+          {
+            name: fy1Label + ' Cumulative',
+            type: 'line',
+            yAxisIndex: 1,
+            data: cumData1,
+            smooth: 0.4,
+            connectNulls: false,
+            lineStyle: { color: COLORS.blue, width: 2.5, type: 'dashed' },
+            symbol: 'circle',
+            symbolSize: 5,
+            itemStyle: { color: COLORS.blue },
+          },
+          {
+            name: fy2Label + ' Cumulative',
+            type: 'line',
+            yAxisIndex: 1,
+            data: cumData2,
+            smooth: 0.4,
+            connectNulls: false,
+            lineStyle: { color: COLORS.emerald, width: 2.5, type: 'dashed' },
+            symbol: 'circle',
+            symbolSize: 5,
+            itemStyle: { color: COLORS.emerald },
+          },
+        ],
+      };
+
+      if (!state.charts.combo) {
+        state.charts.combo = echarts.init(document.getElementById('chart-combo'));
+      }
+      state.charts.combo.setOption(option, true);
+    }
+
+    function renderMCCostChart(filteredCost) {
+      const agg = aggregateByMC(filteredCost, 'COST_CONTRIBUTION');
+
+      if (agg.length === 0) {
+        if (!state.charts.mcCost) {
+          state.charts.mcCost = echarts.init(document.getElementById('chart-mc-cost'));
+        }
+        state.charts.mcCost.setOption({ graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'No data for selected filters', fill:'#94a3b8', fontSize:13 } }] }, true);
+        return;
+      }
+
+      const categories = agg.map(d => d.mc);
+      const values     = agg.map(d => d.value);
+
+      const option = {
+        animation: true,
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          backgroundColor: 'rgba(255,255,255,0.97)',
+          borderColor: '#e2e8f0',
+          padding: 12,
+          formatter: params => {
+            const p = params[0];
+            return `<div style="color:#1e293b"><strong>${p.name}</strong><br/>` +
+              `Cost Saving: <strong>${formatCurrencyFull(p.value)}</strong></div>`;
+          },
+        },
+        grid: { left: 72, right: 80, top: 10, bottom: 10, containLabel: false },
+        xAxis: {
+          type: 'value',
+          axisLabel: { color: '#94a3b8', fontSize: 10, formatter: v => formatLargeNumber(v) },
+          splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+          axisLine: { show: false },
+          axisTick: { show: false },
+        },
+        yAxis: {
+          type: 'category',
+          data: categories,
+          axisLabel: { color: '#334155', fontSize: 11, fontWeight: '600' },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          inverse: false,
+        },
+        series: [{
+          type: 'bar',
+          data: values.map((v, i) => ({
+            value: v,
+            itemStyle: { color: PALETTE[i % PALETTE.length], borderRadius: [0,3,3,0] },
+          })),
+          label: {
+            show: true,
+            position: 'right',
+            formatter: p => formatLargeNumber(p.value),
+            fontSize: 10,
+            color: '#64748b',
+          },
+          barMaxWidth: 30,
+        }],
+      };
+
+      if (!state.charts.mcCost) {
+        state.charts.mcCost = echarts.init(document.getElementById('chart-mc-cost'));
+      }
+      state.charts.mcCost.setOption(option, true);
+    }
+
+    function renderMCJobsChart(filteredCost) {
+      const agg = aggregateByMC(filteredCost, 'JOB');
+
+      if (agg.length === 0) {
+        if (!state.charts.mcJobs) {
+          state.charts.mcJobs = echarts.init(document.getElementById('chart-mc-jobs'));
+        }
+        state.charts.mcJobs.setOption({ graphic: [{ type:'text', left:'center', top:'middle', style:{ text:'No data for selected filters', fill:'#94a3b8', fontSize:13 } }] }, true);
+        return;
+      }
+
+      const categories = agg.map(d => d.mc);
+      const values     = agg.map(d => d.value);
+
+      const option = {
+        animation: true,
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          backgroundColor: 'rgba(255,255,255,0.97)',
+          borderColor: '#e2e8f0',
+          padding: 12,
+          formatter: params => {
+            const p = params[0];
+            return `<div style="color:#1e293b"><strong>${p.name}</strong><br/>` +
+              `Jobs: <strong>${formatInteger(p.value)}</strong></div>`;
+          },
+        },
+        grid: { left: 14, right: 14, top: 22, bottom: 48, containLabel: true },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLabel: { color: '#334155', fontSize: 11, fontWeight: '600', rotate: 20 },
+          axisLine: { lineStyle: { color: '#e2e8f0' } },
+          axisTick: { show: false },
+        },
+        yAxis: {
+          type: 'value',
+          name: 'Jobs',
+          nameTextStyle: { color: COLORS.purple, fontSize: 10 },
+          axisLabel: { color: '#94a3b8', fontSize: 10 },
+          splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+          axisLine: { show: false },
+          axisTick: { show: false },
+        },
+        series: [{
+          type: 'bar',
+          data: values.map((v, i) => ({
+            value: v,
+            itemStyle: { color: PALETTE[i % PALETTE.length], borderRadius: [3,3,0,0] },
+          })),
+          label: {
+            show: true,
+            position: 'top',
+            fontSize: 10,
+            color: '#64748b',
+            formatter: p => formatInteger(p.value),
+          },
+          barMaxWidth: 38,
+        }],
+      };
+
+      if (!state.charts.mcJobs) {
+        state.charts.mcJobs = echarts.init(document.getElementById('chart-mc-jobs'));
+      }
+      state.charts.mcJobs.setOption(option, true);
+    }
+
+    function renderHeatmapChart() {
+      const rows = getUtilForHeatmap();
+      const { machines, months, data } = buildHeatmapMatrix(rows);
+
+      // Dynamically resize the container based on number of machine rows
+      const el = document.getElementById('chart-heatmap');
+      const h = Math.max(420, machines.length * 30 + 130);
+      el.style.height = h + 'px';
+
+      // Always dispose and reinit to correctly handle the new container height
+      if (state.charts.heatmap) {
+        state.charts.heatmap.dispose();
+        state.charts.heatmap = null;
+      }
+      state.charts.heatmap = echarts.init(el);
+
+      if (machines.length === 0) {
+        state.charts.heatmap.setOption({
+          graphic: [{
+            type: 'text', left: 'center', top: 'middle',
+            style: { text: 'No utilization data for selected filters', fill: '#94a3b8', fontSize: 13 },
+          }],
+        });
+        return;
+      }
+
+      const showLabels = machines.length <= 35;
+
+      const option = {
+        animation: false,
+        tooltip: {
+          position: 'top',
+          backgroundColor: 'rgba(255,255,255,0.97)',
+          borderColor: '#e2e8f0',
+          borderWidth: 1,
+          padding: 10,
+          textStyle: { color: '#1e293b', fontSize: 12 },
+          formatter: p => {
+            const val = p.data[2] != null ? p.data[2].toFixed(1) + '%' : 'N/A';
+            return `<div><strong>${machines[p.data[1]]}</strong><br/>` +
+              `${months[p.data[0]]}: <strong>${val}</strong></div>`;
+          },
+        },
+        grid: { left: 82, right: 18, top: 8, bottom: 56 },
+        xAxis: {
+          type: 'category',
+          data: months,
+          splitArea: { show: true, areaStyle: { color: ['rgba(248,250,252,0.8)', 'rgba(241,245,249,0.5)'] } },
+          axisLabel: { color: '#64748b', fontSize: 10 },
+          axisLine: { lineStyle: { color: '#e2e8f0' } },
+          axisTick: { show: false },
+        },
+        yAxis: {
+          type: 'category',
+          data: machines,
+          splitArea: { show: true, areaStyle: { color: ['rgba(248,250,252,0.8)', 'rgba(241,245,249,0.5)'] } },
+          axisLabel: { color: '#334155', fontSize: 10, fontWeight: '600' },
+          axisLine: { show: false },
+          axisTick: { show: false },
+        },
+        visualMap: {
+          min: 0, max: 100,
+          calculable: true,
+          orient: 'horizontal',
+          left: 'center',
+          bottom: 4,
+          inRange: { color: ['#ef4444','#f97316','#facc15','#86efac','#10B981'] },
+          textStyle: { color: '#64748b', fontSize: 10 },
+          text: ['100%', '0%'],
+          itemHeight: 120,
+          itemWidth: 16,
+        },
+        series: [{
+          type: 'heatmap',
+          data: data,
+          label: {
+            show: showLabels,
+            formatter: p => (p.data[2] != null ? p.data[2].toFixed(0) + '%' : ''),
+            fontSize: 9,
+            color: '#1e293b',
+          },
+          emphasis: {
+            itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,91,171,0.3)' },
+          },
+        }],
+      };
+
+      state.charts.heatmap.setOption(option);
+    }
+
+    // ── MASTER RENDER ────────────────────────────────────────────
+    function renderAll() {
+      const filteredCost = getFilteredCost();
+      const filteredUtil = getFilteredUtil();
+      renderKPIs(filteredCost, filteredUtil);
+      renderComboChart();
+      renderMCCostChart(filteredCost);
+      renderMCJobsChart(filteredCost);
+      renderHeatmapChart();
+    }
+
+    // ── UTILITY ──────────────────────────────────────────────────
+    function debounce(fn, delay) {
+      let timer;
+      return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), delay); };
+    }
+
+    // ── EVENT LISTENERS ──────────────────────────────────────────
+    function attachEventListeners() {
+      // Global filter: Fiscal Year
+      document.getElementById('filter-fy').addEventListener('change', e => {
+        state.filters.fy = e.target.value;
+        renderAll();
+      });
+
+      // Global filter: Month
+      document.getElementById('filter-month').addEventListener('change', e => {
+        state.filters.month = e.target.value;
+        renderAll();
+      });
+
+      // Global filter: Machine Category
+      document.getElementById('filter-mc').addEventListener('change', e => {
+        state.filters.mc = e.target.value;
+        renderAll();
+      });
+
+      // Reset button: clear all global filters
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        state.filters = { fy: 'All', month: 'All', mc: 'All' };
+        document.getElementById('filter-fy').value    = 'All';
+        document.getElementById('filter-month').value = 'All';
+        document.getElementById('filter-mc').value    = 'All';
+        renderAll();
+      });
+
+      // Combo chart FY selector 1
+      document.getElementById('combo-fy1').addEventListener('change', e => {
+        state.comboFY1 = e.target.value;
+        renderComboChart();
+      });
+
+      // Combo chart FY selector 2
+      document.getElementById('combo-fy2').addEventListener('change', e => {
+        state.comboFY2 = e.target.value;
+        renderComboChart();
+      });
+
+      // Heatmap FY selector — also refreshes the machine dropdown
+      document.getElementById('heatmap-fy').addEventListener('change', e => {
+        state.heatmapFY = e.target.value;
+        populateHeatmapMachineSelector();
+        renderHeatmapChart();
+      });
+
+      // Heatmap machine selector
+      document.getElementById('heatmap-machine').addEventListener('change', e => {
+        state.heatmapMachine = e.target.value;
+        renderHeatmapChart();
+      });
+
+      // Window resize — debounced to avoid excessive redraws
+      window.addEventListener('resize', debounce(() => {
+        Object.values(state.charts).forEach(chart => { if (chart) chart.resize(); });
+      }, 150));
+    }
+
+    // ── ENTRY POINT ──────────────────────────────────────────────
+    loadAllData();
+
+  }());
+  </script>
+
+</body>
+</html>
