@@ -23,16 +23,27 @@ function formatAxisValue(v: number): string {
   return String(v);
 }
 
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
+function CustomTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { name: string; value: number; color: string }[];
+  label?: string;
+}) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-sm">
+    <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 text-sm min-w-[200px]">
       <p className="font-semibold text-slate-700 mb-2">{label}</p>
       {payload.map((entry) => (
         <div key={entry.name} className="flex items-center gap-2 mb-1">
-          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: entry.color }} />
-          <span className="text-slate-600">{entry.name}:</span>
-          <span className="font-semibold text-slate-800">
+          <span
+            className="w-3 h-3 rounded-full flex-shrink-0"
+            style={{ backgroundColor: entry.color }}
+          />
+          <span className="text-slate-600 text-xs">{entry.name}:</span>
+          <span className="font-semibold text-slate-800 ml-auto">
             {entry.value >= 1_000_000
               ? `฿${(entry.value / 1_000_000).toFixed(2)}M`
               : `฿${entry.value.toLocaleString()}`}
@@ -44,52 +55,69 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 }
 
 export function CostContributionChart({ costRows, loading }: Props) {
-  const { compareFY1, compareFY2, selectedMCs, selectedMachines, fyOptions } = useFilters();
-
-  const fy1 = compareFY1 || fyOptions[fyOptions.length - 2] || fyOptions[0] || '';
-  const fy2 = compareFY2 || fyOptions[fyOptions.length - 1] || fyOptions[1] || '';
+  const { fy1, fy2 } = useFilters();
 
   const data = useMemo(
-    () => computeCostContribution(costRows, fy1, fy2, selectedMCs, selectedMachines),
-    [costRows, fy1, fy2, selectedMCs, selectedMachines]
+    () => computeCostContribution(costRows, fy1, fy2),
+    [costRows, fy1, fy2]
   );
 
   if (loading) return <ChartSkeleton />;
   if (!data.length) return <EmptyState />;
 
+  const legendItems = [
+    { color: CHART_COLORS.blue, label: `${fy1} (Monthly)`, type: 'bar' },
+    { color: CHART_COLORS.orange, label: `${fy2} (Monthly)`, type: 'bar' },
+    { color: CHART_COLORS.green, label: `${fy1} Cumulative`, type: 'line' },
+    { color: CHART_COLORS.purple, label: `${fy2} Cumulative`, type: 'line' },
+  ];
+
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
         <div>
           <h3 className="text-base font-semibold text-slate-800">Cost Contribution</h3>
-          <p className="text-xs text-slate-400 mt-0.5">Monthly comparison with cumulative trend</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Monthly bars (left axis) with cumulative lines per FY (right axis)
+          </p>
         </div>
-        <div className="flex gap-3 text-xs text-slate-500">
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: CHART_COLORS.blue }} />
-            {fy1}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: CHART_COLORS.orange }} />
-            {fy2}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-0.5 inline-block" style={{ backgroundColor: CHART_COLORS.green }} />
-            Cumulative ({fy2})
-          </span>
+        <div className="flex flex-wrap gap-3 text-xs text-slate-500">
+          {legendItems.map((item) => (
+            <span key={item.label} className="flex items-center gap-1.5">
+              {item.type === 'bar' ? (
+                <span
+                  className="w-3 h-3 rounded-sm inline-block"
+                  style={{ backgroundColor: item.color }}
+                />
+              ) : (
+                <span
+                  className="w-5 h-0.5 inline-block rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+              )}
+              {item.label}
+            </span>
+          ))}
         </div>
       </div>
+
       <div className="flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
+          <ComposedChart data={data} margin={{ top: 4, right: 20, left: 8, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-            <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+            <XAxis
+              dataKey="month"
+              tick={{ fontSize: 11, fill: '#94a3b8' }}
+              axisLine={false}
+              tickLine={false}
+            />
             <YAxis
               yAxisId="left"
               tickFormatter={formatAxisValue}
               tick={{ fontSize: 11, fill: '#94a3b8' }}
               axisLine={false}
               tickLine={false}
+              width={55}
             />
             <YAxis
               yAxisId="right"
@@ -98,19 +126,45 @@ export function CostContributionChart({ costRows, loading }: Props) {
               tick={{ fontSize: 11, fill: '#94a3b8' }}
               axisLine={false}
               tickLine={false}
+              width={60}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Bar yAxisId="left" dataKey="fy1" name={fy1} fill={CHART_COLORS.blue} radius={[4, 4, 0, 0]} maxBarSize={40} />
-            <Bar yAxisId="left" dataKey="fy2" name={fy2} fill={CHART_COLORS.orange} radius={[4, 4, 0, 0]} maxBarSize={40} />
+            <Bar
+              yAxisId="left"
+              dataKey="fy1"
+              name={`${fy1} (Monthly)`}
+              fill={CHART_COLORS.blue}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={36}
+            />
+            <Bar
+              yAxisId="left"
+              dataKey="fy2"
+              name={`${fy2} (Monthly)`}
+              fill={CHART_COLORS.orange}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={36}
+            />
             <Line
               yAxisId="right"
               type="monotone"
-              dataKey="cumulative"
-              name={`Cumulative (${fy2})`}
+              dataKey="cumFY1"
+              name={`${fy1} Cumulative`}
               stroke={CHART_COLORS.green}
               strokeWidth={2.5}
-              dot={{ fill: CHART_COLORS.green, r: 4, strokeWidth: 0 }}
-              activeDot={{ r: 6 }}
+              dot={{ fill: CHART_COLORS.green, r: 3, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="cumFY2"
+              name={`${fy2} Cumulative`}
+              stroke={CHART_COLORS.purple}
+              strokeWidth={2.5}
+              strokeDasharray="5 3"
+              dot={{ fill: CHART_COLORS.purple, r: 3, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
             />
           </ComposedChart>
         </ResponsiveContainer>

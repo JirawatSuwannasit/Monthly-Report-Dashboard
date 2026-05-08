@@ -20,11 +20,13 @@ export const CHART_COLOR_LIST = [
   CHART_COLORS.pink,
 ];
 
+// Fiscal year month order — starts in April
 export const MONTH_ORDER = [
   'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP',
   'OCT', 'NOV', 'DEC', 'JAN', 'FEB', 'MAR',
 ];
 
-export const HEATMAP_LOW = '#EFF6FF';
-export const HEATMAP_HIGH = '#1D4ED8';
+// Heatmap color scale: light red -> deep red
+export const HEATMAP_LOW = '#FFF5F5';
+export const HEATMAP_HIGH = '#991B1B';
 export const HEATMAP_ZERO = '#F8FAFC';

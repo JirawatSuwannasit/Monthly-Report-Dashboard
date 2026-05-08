@@ -1,33 +1,29 @@
-import { CostSavingRow, UtilizationRow, KpiSummary, MonthlyContribution, MCBarData, HeatmapCell } from './types';
+import { CostSavingRow, UtilizationRow, KpiSummary, MonthlyContribution, MCComparisonData, HeatmapCell } from './types';
 import { MONTH_ORDER } from '@/constants/chartColors';
 
+// Filter cost rows by FY and/or month only (MC and machine filters are chart-local)
 export function filterCostRows(
   rows: CostSavingRow[],
   fy: string | null,
-  month: string | null,
-  mcs: string[],
-  machines: string[]
+  month: string | null
 ): CostSavingRow[] {
   return rows.filter((r) => {
     if (fy && r.FY !== fy) return false;
     if (month && r.MONTH !== month) return false;
-    if (mcs.length > 0 && !mcs.includes(r.MC)) return false;
-    if (machines.length > 0 && !machines.includes(r.MACHINE_NO)) return false;
     return true;
   });
 }
 
+// Filter utilization rows — machines param used by heatmap local filter only
 export function filterUtilRows(
   rows: UtilizationRow[],
   fy: string | null,
   month: string | null,
-  mcs: string[],
   machines: string[]
 ): UtilizationRow[] {
   return rows.filter((r) => {
     if (fy && r.FY !== fy) return false;
     if (month && r.MONTH !== month) return false;
-    if (mcs.length > 0 && !mcs.includes(r.MC)) return false;
     if (machines.length > 0 && !machines.includes(r.MACHINE_NO)) return false;
     return true;
   });
@@ -47,21 +43,15 @@ export function computeKpis(
   return { totalCostSaving, totalJobs, totalHours, avgUtilization };
 }
 
+// Build monthly cost contribution data with dual cumulative lines for FY1 and FY2.
+// Cumulative resets naturally because MONTH_ORDER starts at APR and we filter per-FY.
 export function computeCostContribution(
   rows: CostSavingRow[],
   fy1: string,
-  fy2: string,
-  mcs: string[],
-  machines: string[]
+  fy2: string
 ): MonthlyContribution[] {
-  const applyMachineFilter = (r: CostSavingRow) => {
-    if (mcs.length > 0 && !mcs.includes(r.MC)) return false;
-    if (machines.length > 0 && !machines.includes(r.MACHINE_NO)) return false;
-    return true;
-  };
-
-  const fy1Rows = rows.filter((r) => r.FY === fy1 && applyMachineFilter(r));
-  const fy2Rows = rows.filter((r) => r.FY === fy2 && applyMachineFilter(r));
+  const fy1Rows = rows.filter((r) => r.FY === fy1);
+  const fy2Rows = rows.filter((r) => r.FY === fy2);
 
   const fy1Map: Record<string, number> = {};
   const fy2Map: Record<string, number> = {};
@@ -77,33 +67,63 @@ export function computeCostContribution(
     (m) => fy1Map[m] !== undefined || fy2Map[m] !== undefined
   );
 
-  let cumulative = 0;
+  let cumFY1 = 0;
+  let cumFY2 = 0;
+
   return allMonths.map((month) => {
+    const fy1Val = fy1Map[month] || 0;
     const fy2Val = fy2Map[month] || 0;
-    cumulative += fy2Val;
-    return {
-      month,
-      fy1: fy1Map[month] || 0,
-      fy2: fy2Val,
-      cumulative,
-    };
+    cumFY1 += fy1Val;
+    cumFY2 += fy2Val;
+    return { month, fy1: fy1Val, fy2: fy2Val, cumFY1, cumFY2 };
   });
 }
 
-export function computeCostByMC(rows: CostSavingRow[]): MCBarData[] {
-  const map: Record<string, number> = {};
-  rows.forEach((r) => {
-    map[r.MC] = (map[r.MC] || 0) + r.COST_CONTRIBUTION;
-  });
-  return Object.entries(map).map(([mc, value]) => ({ mc, value }));
+// Side-by-side cost contribution comparison between FY1 and FY2 per MC category.
+// Optional month param overrides to a single month view (used by local chart filter).
+export function computeCostByMCComparison(
+  rows: CostSavingRow[],
+  fy1: string,
+  fy2: string,
+  month: string | null
+): MCComparisonData[] {
+  const filter = (r: CostSavingRow, fy: string) =>
+    r.FY === fy && (!month || r.MONTH === month);
+
+  const fy1Rows = rows.filter((r) => filter(r, fy1));
+  const fy2Rows = rows.filter((r) => filter(r, fy2));
+
+  const fy1Map: Record<string, number> = {};
+  const fy2Map: Record<string, number> = {};
+
+  fy1Rows.forEach((r) => { fy1Map[r.MC] = (fy1Map[r.MC] || 0) + r.COST_CONTRIBUTION; });
+  fy2Rows.forEach((r) => { fy2Map[r.MC] = (fy2Map[r.MC] || 0) + r.COST_CONTRIBUTION; });
+
+  const allMCs = Array.from(new Set([...Object.keys(fy1Map), ...Object.keys(fy2Map)])).sort();
+  return allMCs.map((mc) => ({ mc, fy1: fy1Map[mc] || 0, fy2: fy2Map[mc] || 0 }));
 }
 
-export function computeJobsByMC(rows: CostSavingRow[]): MCBarData[] {
-  const map: Record<string, number> = {};
-  rows.forEach((r) => {
-    map[r.MC] = (map[r.MC] || 0) + r.JOB;
-  });
-  return Object.entries(map).map(([mc, value]) => ({ mc, value }));
+// Side-by-side jobs comparison between FY1 and FY2 per MC category.
+export function computeJobsByMCComparison(
+  rows: CostSavingRow[],
+  fy1: string,
+  fy2: string,
+  month: string | null
+): MCComparisonData[] {
+  const filter = (r: CostSavingRow, fy: string) =>
+    r.FY === fy && (!month || r.MONTH === month);
+
+  const fy1Rows = rows.filter((r) => filter(r, fy1));
+  const fy2Rows = rows.filter((r) => filter(r, fy2));
+
+  const fy1Map: Record<string, number> = {};
+  const fy2Map: Record<string, number> = {};
+
+  fy1Rows.forEach((r) => { fy1Map[r.MC] = (fy1Map[r.MC] || 0) + r.JOB; });
+  fy2Rows.forEach((r) => { fy2Map[r.MC] = (fy2Map[r.MC] || 0) + r.JOB; });
+
+  const allMCs = Array.from(new Set([...Object.keys(fy1Map), ...Object.keys(fy2Map)])).sort();
+  return allMCs.map((mc) => ({ mc, fy1: fy1Map[mc] || 0, fy2: fy2Map[mc] || 0 }));
 }
 
 export function computeHeatmap(

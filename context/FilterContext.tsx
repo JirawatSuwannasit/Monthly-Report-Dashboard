@@ -4,26 +4,15 @@ import React, { createContext, useContext, useState, useMemo } from 'react';
 import { CostSavingRow, UtilizationRow } from '@/lib/types';
 import { uniqueValues } from '@/lib/dataUtils';
 
-interface FilterState {
-  fy: string;
+interface FilterContextValue {
+  fy1: string;
+  fy2: string;
   month: string;
-  selectedMCs: string[];
-  selectedMachines: string[];
-  compareFY1: string;
-  compareFY2: string;
-}
-
-interface FilterContextValue extends FilterState {
-  setFY: (v: string) => void;
+  setFY1: (v: string) => void;
+  setFY2: (v: string) => void;
   setMonth: (v: string) => void;
-  setSelectedMCs: (v: string[]) => void;
-  setSelectedMachines: (v: string[]) => void;
-  setCompareFY1: (v: string) => void;
-  setCompareFY2: (v: string) => void;
   fyOptions: string[];
   monthOptions: string[];
-  mcOptions: string[];
-  machineOptions: string[];
 }
 
 const FilterContext = createContext<FilterContextValue | null>(null);
@@ -36,17 +25,15 @@ interface FilterProviderProps {
 }
 
 export function FilterProvider({ children, costRows, utilRows, allFYs }: FilterProviderProps) {
-  const [fy, setFY] = useState<string>('');
+  // Default fy1/fy2 to the last two available fiscal years
+  const [fy1, setFY1] = useState<string>(() => allFYs[allFYs.length - 2] || allFYs[0] || '');
+  const [fy2, setFY2] = useState<string>(() => allFYs[allFYs.length - 1] || '');
   const [month, setMonth] = useState<string>('');
-  const [selectedMCs, setSelectedMCs] = useState<string[]>([]);
-  const [selectedMachines, setSelectedMachines] = useState<string[]>([]);
-  const [compareFY1, setCompareFY1] = useState<string>('');
-  const [compareFY2, setCompareFY2] = useState<string>('');
 
   const fyOptions = useMemo(() => allFYs, [allFYs]);
 
   const monthOptions = useMemo(() => {
-    const base = ['APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR'];
+    const base = ['APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC', 'JAN', 'FEB', 'MAR'];
     const available = new Set([
       ...uniqueValues(costRows, 'MONTH'),
       ...uniqueValues(utilRows, 'MONTH'),
@@ -54,25 +41,9 @@ export function FilterProvider({ children, costRows, utilRows, allFYs }: FilterP
     return base.filter((m) => available.has(m));
   }, [costRows, utilRows]);
 
-  const mcOptions = useMemo(
-    () => uniqueValues(costRows, 'MC'),
-    [costRows]
-  );
-
-  const machineOptions = useMemo(() => {
-    const fromCost = uniqueValues(costRows, 'MACHINE_NO').filter((m) => m !== 'NA');
-    const fromUtil = uniqueValues(utilRows, 'MACHINE_NO');
-    return Array.from(new Set([...fromCost, ...fromUtil])).sort();
-  }, [costRows, utilRows]);
-
   return (
     <FilterContext.Provider
-      value={{
-        fy, month, selectedMCs, selectedMachines, compareFY1, compareFY2,
-        setFY, setMonth, setSelectedMCs, setSelectedMachines,
-        setCompareFY1, setCompareFY2,
-        fyOptions, monthOptions, mcOptions, machineOptions,
-      }}
+      value={{ fy1, fy2, month, setFY1, setFY2, setMonth, fyOptions, monthOptions }}
     >
       {children}
     </FilterContext.Provider>

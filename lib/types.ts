@@ -35,16 +35,20 @@ export interface KpiSummary {
   avgUtilization: number;
 }
 
+// Monthly cost contribution with dual cumulative lines for FY1 and FY2
 export interface MonthlyContribution {
   month: string;
   fy1: number;
   fy2: number;
-  cumulative: number;
+  cumFY1: number; // cumulative sum for FY1, resets each April
+  cumFY2: number; // cumulative sum for FY2, resets each April
 }
 
-export interface MCBarData {
+// Side-by-side comparison of a metric between FY1 and FY2 per MC category
+export interface MCComparisonData {
   mc: string;
-  value: number;
+  fy1: number;
+  fy2: number;
 }
 
 export interface HeatmapCell {

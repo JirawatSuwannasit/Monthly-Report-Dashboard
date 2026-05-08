@@ -13,20 +13,24 @@ interface KpiRowProps {
 }
 
 export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
-  const { fy, month, selectedMCs, selectedMachines } = useFilters();
+  const { fy1, fy2, month } = useFilters();
 
   const kpis = useMemo(() => {
-    const filteredCost = filterCostRows(costRows, fy || null, month || null, selectedMCs, selectedMachines);
-    const filteredUtil = filterUtilRows(utilRows, fy || null, month || null, selectedMCs, selectedMachines);
-    return computeKpis(filteredCost, filteredUtil);
-  }, [costRows, utilRows, fy, month, selectedMCs, selectedMachines]);
+    // Combine rows for both selected fiscal years
+    const fy1Cost = filterCostRows(costRows, fy1 || null, month || null);
+    const fy2Cost = filterCostRows(costRows, fy2 || null, month || null);
+    const combinedCost = fy1 === fy2 ? fy1Cost : [...fy1Cost, ...fy2Cost];
+
+    const fy2Util = filterUtilRows(utilRows, fy2 || null, month || null, []);
+    return computeKpis(combinedCost, fy2Util);
+  }, [costRows, utilRows, fy1, fy2, month]);
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard
         title="Total Cost Saving"
         value={formatCurrency(kpis.totalCostSaving)}
-        subtitle="Cumulative cost contribution"
+        subtitle={`FY1 + FY2 combined`}
         loading={loading}
         accentColor="bg-blue-50 text-blue-700"
         icon={
@@ -38,7 +42,7 @@ export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
       <KpiCard
         title="Total Testing Jobs"
         value={formatNumber(kpis.totalJobs)}
-        subtitle="Number of test runs"
+        subtitle="FY1 + FY2 combined"
         loading={loading}
         accentColor="bg-orange-50 text-orange-600"
         icon={
@@ -50,7 +54,7 @@ export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
       <KpiCard
         title="Total Operating Hours"
         value={`${formatNumber(Math.round(kpis.totalHours))} hrs`}
-        subtitle="Cumulative machine runtime"
+        subtitle="FY1 + FY2 combined"
         loading={loading}
         accentColor="bg-emerald-50 text-emerald-600"
         icon={
@@ -62,7 +66,7 @@ export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
       <KpiCard
         title="Avg Machine Utilization"
         value={`${kpis.avgUtilization.toFixed(1)}%`}
-        subtitle="Average operation rate"
+        subtitle={`${fy2 || 'FY2'} utilization rate`}
         loading={loading}
         accentColor="bg-purple-50 text-purple-600"
         icon={
