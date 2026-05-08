@@ -22,7 +22,6 @@
   <style>
     * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
 
-    /* Loading spinner animation */
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
@@ -34,12 +33,10 @@
       animation: spin 0.75s linear infinite;
     }
 
-    /* Custom scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #f1f5f9; }
     ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
 
-    /* Native select arrow replacement */
     .filter-select {
       appearance: none;
       -webkit-appearance: none;
@@ -50,7 +47,6 @@
       padding-right: 2rem;
     }
 
-    /* KPI value text */
     .kpi-value {
       font-size: 1.75rem;
       font-weight: 700;
@@ -58,7 +54,6 @@
       letter-spacing: -0.02em;
     }
 
-    /* Chart card base */
     .chart-card {
       background: #ffffff;
       border-radius: 0.625rem;
@@ -76,6 +71,78 @@
       color: #94a3b8;
       margin-top: 2px;
     }
+
+    /* Multi-select dropdown panel */
+    .ms-panel {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      z-index: 50;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.10);
+      min-width: 180px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 6px 4px;
+    }
+    .ms-panel.hidden { display: none; }
+
+    .ms-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8125rem;
+      color: #334155;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .ms-item:hover { background: #f1f5f9; }
+    .ms-item input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: #005BAB;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .ms-divider {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 4px 8px;
+    }
+
+    .ms-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 0.875rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 6px 12px;
+      color: #374151;
+      background: #ffffff;
+      cursor: pointer;
+      min-width: 158px;
+      text-align: left;
+      white-space: nowrap;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .ms-btn:focus, .ms-btn.open {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+    }
+    .ms-btn .ms-btn-label {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ms-btn svg { flex-shrink: 0; }
   </style>
 </head>
 
@@ -131,7 +198,6 @@
 
       <!-- ── GLOBAL FILTER BAR ──────────────────────────────── -->
       <section class="bg-white rounded-xl shadow-sm border border-slate-100 px-4 py-3 flex flex-wrap gap-3 items-end">
-        <!-- Label -->
         <div class="flex items-center gap-1.5 text-xs font-semibold text-slate-400 uppercase tracking-wider self-center mr-1">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.447.894l-4 2.5A1 1 0 016 17.5v-6.086L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd" />
@@ -157,13 +223,16 @@
           </select>
         </div>
 
-        <!-- MC filter -->
-        <div class="flex flex-col gap-1">
+        <!-- MC multi-select dropdown -->
+        <div class="flex flex-col gap-1 relative" id="mc-wrapper">
           <label class="text-xs font-medium text-slate-500">Machine Category</label>
-          <select id="filter-mc"
-                  class="filter-select text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-[150px] cursor-pointer">
-            <option value="All">All Categories</option>
-          </select>
+          <button type="button" id="mc-btn" class="ms-btn" aria-haspopup="listbox" aria-expanded="false">
+            <span class="ms-btn-label" id="mc-btn-label">All Categories</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div id="mc-panel" class="ms-panel hidden" role="listbox"></div>
         </div>
 
         <!-- Reset -->
@@ -266,12 +335,18 @@
                         class="filter-select text-xs border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[95px] cursor-pointer">
                 </select>
               </div>
-              <div class="flex flex-col gap-0.5">
+              <!-- Heatmap machine multi-select -->
+              <div class="flex flex-col gap-0.5 relative" id="hm-machine-wrapper">
                 <label class="text-[10px] font-medium text-slate-400">Machine</label>
-                <select id="heatmap-machine"
-                        class="filter-select text-xs border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[120px] cursor-pointer">
-                  <option value="All">All Machines</option>
-                </select>
+                <button type="button" id="hm-machine-btn"
+                        class="ms-btn" style="min-width:140px;font-size:0.75rem;padding:4px 8px;"
+                        aria-haspopup="listbox" aria-expanded="false">
+                  <span class="ms-btn-label" id="hm-machine-btn-label">All Machines</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <div id="hm-machine-panel" class="ms-panel hidden" role="listbox"></div>
               </div>
             </div>
           </div>
@@ -297,25 +372,20 @@
     'use strict';
 
     // ── CONSTANTS ────────────────────────────────────────────────
-    // Fiscal year starts in April, so months are ordered APR → MAR
     const FISCAL_MONTH_ORDER = ['APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC','JAN','FEB','MAR'];
 
-    // Full month names as they appear in the CSV MONTH column → abbreviation
     const MONTH_NAME_TO_ABBR = {
       'April':'APR','May':'MAY','June':'JUN','July':'JUL',
       'August':'AUG','September':'SEP','October':'OCT',
       'November':'NOV','December':'DEC','January':'JAN',
       'February':'FEB','March':'MAR',
-      // Handle abbreviated forms too, in case data varies
       'APR':'APR','MAY':'MAY','JUN':'JUN','JUL':'JUL','AUG':'AUG',
       'SEP':'SEP','OCT':'OCT','NOV':'NOV','DEC':'DEC',
       'JAN':'JAN','FEB':'FEB','MAR':'MAR',
     };
 
-    // Preferred sort order for machine categories in the heatmap rows
     const MC_ORDER = ['TE','TS','TH','TENSILE','VI','CMM','DURA','CHILLER'];
 
-    // Chart color palette
     const COLORS = {
       blue:    '#005BAB',
       orange:  '#F97316',
@@ -328,7 +398,6 @@
     };
     const PALETTE = Object.values(COLORS);
 
-    // Raw GitHub URLs for the two CSV data files on this branch
     const CSV_URLS = {
       cost: 'https://raw.githubusercontent.com/jirawatsuwannasit/monthly-report-dashboard/main/Cost%20saving%20database.csv',
       util: 'https://raw.githubusercontent.com/jirawatsuwannasit/monthly-report-dashboard/main/Machine%20utillize%20database.csv',
@@ -336,18 +405,20 @@
 
     // ── APPLICATION STATE ────────────────────────────────────────
     const state = {
-      rawCost: [],        // parsed rows from Cost saving database.csv
-      rawUtil: [],        // parsed rows from Machine utillize database.csv
-      filters: { fy: 'All', month: 'All', mc: 'All' },
-      comboFY1: null,     // left FY for combo chart comparison
-      comboFY2: null,     // right FY for combo chart comparison
-      heatmapFY: null,    // FY displayed in the heatmap
-      heatmapMachine: 'All', // machine filter for heatmap
+      rawCost: [],
+      rawUtil: [],
+      // mc is an array; empty array means "All" (no filter applied)
+      filters: { fy: 'All', month: 'All', mc: [] },
+      comboFY1: null,
+      comboFY2: null,
+      heatmapFY: null,
+      // heatmapMachines is an array; empty array means "All"
+      heatmapMachines: [],
       charts: {
-        combo:   null,    // ECharts instance for combo chart
-        mcCost:  null,    // ECharts instance for MC cost chart
-        mcJobs:  null,    // ECharts instance for MC jobs chart
-        heatmap: null,    // ECharts instance for heatmap
+        combo:   null,
+        mcCost:  null,
+        mcJobs:  null,
+        heatmap: null,
       },
     };
 
@@ -386,14 +457,25 @@
 
     // ── CSV PARSING ──────────────────────────────────────────────
     function parseCSV(text, type) {
+      console.log('[parseCSV] Starting parse for type:', type, '| text length:', text.length);
+
       const result = Papa.parse(text, {
         header: true,
         skipEmptyLines: true,
         transformHeader: h => h.trim(),
       });
 
-      return result.data.map(rawRow => {
-        // Trim every string field to remove leading/trailing whitespace
+      if (result.errors && result.errors.length > 0) {
+        console.warn('[parseCSV] PapaParse reported errors for type:', type, result.errors);
+      }
+
+      console.log('[parseCSV] Raw rows from PapaParse for type:', type, '| count:', result.data.length);
+      if (result.data.length > 0) {
+        console.log('[parseCSV] First raw row headers:', Object.keys(result.data[0]));
+        console.log('[parseCSV] First raw row sample:', result.data[0]);
+      }
+
+      const parsed = result.data.map(rawRow => {
         const row = {};
         Object.keys(rawRow).forEach(k => {
           const key = k.trim();
@@ -407,61 +489,84 @@
           row.JOB  = parseInt(row.JOB, 10) || 0;
           row.COST = parseFloat(row.COST) || 0;
           row.COST_CONTRIBUTION = parseFloat(row.COST_CONTRIBUTION) || 0;
-          // Normalize MONTH column to 3-letter fiscal abbreviation
           row.MONTH_ABBR = MONTH_NAME_TO_ABBR[row.MONTH] || row.MONTH;
         } else {
-          // Strip trailing '%' if present, then parse as float
-          const rateStr = String(row.OPERATION_RATE || '').replace('%', '').trim();
+          // Strip trailing '%' before parsing OPERATION_RATE
+          const rateRaw = String(row.OPERATION_RATE || '');
+          const rateStr = rateRaw.replace('%', '').trim();
           row.OPERATION_RATE = parseFloat(rateStr);
-          if (isNaN(row.OPERATION_RATE)) row.OPERATION_RATE = null;
+          if (isNaN(row.OPERATION_RATE)) {
+            console.warn('[parseCSV] OPERATION_RATE is NaN for raw value:', JSON.stringify(rateRaw), '| row:', row);
+            row.OPERATION_RATE = null;
+          }
           row.MONTH_ABBR = MONTH_NAME_TO_ABBR[row.MONTH] || row.MONTH;
         }
 
         return row;
       });
+
+      console.log('[parseCSV] Parsed', parsed.length, 'rows for type:', type);
+      if (parsed.length > 0) {
+        console.log('[parseCSV] First parsed row:', parsed[0]);
+      }
+
+      return parsed;
     }
 
     // ── DATA LOADING ─────────────────────────────────────────────
     async function loadAllData() {
       showLoading();
+      console.log('[loadAllData] Fetching CSV files...');
+      console.log('[loadAllData] Cost URL:', CSV_URLS.cost);
+      console.log('[loadAllData] Util URL:', CSV_URLS.util);
+
       try {
         const [costRes, utilRes] = await Promise.all([
           fetch(CSV_URLS.cost),
           fetch(CSV_URLS.util),
         ]);
 
+        console.log('[loadAllData] Cost CSV response status:', costRes.status, costRes.ok);
+        console.log('[loadAllData] Util CSV response status:', utilRes.status, utilRes.ok);
+
         if (!costRes.ok) throw new Error('Cost saving CSV fetch failed (HTTP ' + costRes.status + ')');
         if (!utilRes.ok) throw new Error('Machine utilization CSV fetch failed (HTTP ' + utilRes.status + ')');
 
         const [costText, utilText] = await Promise.all([costRes.text(), utilRes.text()]);
 
+        console.log('[loadAllData] Cost CSV text length:', costText.length);
+        console.log('[loadAllData] Util CSV text length:', utilText.length);
+
         state.rawCost = parseCSV(costText, 'cost');
         state.rawUtil = parseCSV(utilText, 'util');
+
+        console.log('[loadAllData] state.rawCost rows:', state.rawCost.length);
+        console.log('[loadAllData] state.rawUtil rows:', state.rawUtil.length);
 
         if (state.rawCost.length === 0) throw new Error('Cost saving CSV parsed with 0 rows.');
         if (state.rawUtil.length === 0) throw new Error('Machine utilization CSV parsed with 0 rows.');
 
         initDashboard();
       } catch (err) {
+        console.error('[loadAllData] ERROR:', err);
         showError('Data load failed: ' + err.message);
-        console.error(err);
       }
     }
 
     // ── INITIALIZATION ───────────────────────────────────────────
     function initDashboard() {
-      // Derive sorted FY lists from each dataset
       const costFYs = [...new Set(state.rawCost.map(r => r.FY))].filter(Boolean).sort();
       const utilFYs = [...new Set(state.rawUtil.map(r => r.FY))].filter(Boolean).sort();
 
-      // Combo chart defaults: the two most recent fiscal years in cost data
+      console.log('[initDashboard] costFYs:', costFYs);
+      console.log('[initDashboard] utilFYs:', utilFYs);
+
       state.comboFY1 = costFYs.length >= 2 ? costFYs[costFYs.length - 2] : costFYs[0];
       state.comboFY2 = costFYs[costFYs.length - 1];
-
-      // Heatmap defaults: latest FY in utilization data
       state.heatmapFY = utilFYs[utilFYs.length - 1];
 
-      // Populate header meta labels
+      console.log('[initDashboard] comboFY1:', state.comboFY1, '| comboFY2:', state.comboFY2, '| heatmapFY:', state.heatmapFY);
+
       const dates = state.rawCost.map(r => r.DATE).filter(Boolean).sort();
       if (dates.length > 0) {
         document.getElementById('data-range-label').textContent =
@@ -470,26 +575,21 @@
       document.getElementById('last-updated-label').textContent =
         new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-      // Populate all dropdown selectors
       populateFilters(costFYs);
       populateComboFYSelectors(costFYs);
       populateHeatmapFYSelector(utilFYs);
       populateHeatmapMachineSelector();
 
-      // First render of all charts and KPIs
       renderAll();
 
-      // Show app and hide spinner
       hideLoading();
       showApp();
 
-      // Wire up all event listeners
       attachEventListeners();
     }
 
     // ── FILTER POPULATION ────────────────────────────────────────
     function populateFilters(fyList) {
-      // FY dropdown
       const fySelect = document.getElementById('filter-fy');
       fyList.forEach(fy => {
         const opt = document.createElement('option');
@@ -498,7 +598,6 @@
         fySelect.appendChild(opt);
       });
 
-      // Month dropdown in fiscal year order
       const monthSelect = document.getElementById('filter-month');
       FISCAL_MONTH_ORDER.forEach(m => {
         const opt = document.createElement('option');
@@ -507,15 +606,13 @@
         monthSelect.appendChild(opt);
       });
 
-      // Machine category dropdown, sorted alphabetically
-      const mcSelect = document.getElementById('filter-mc');
+      // Build multi-select checkbox panel for Machine Category
       const mcs = [...new Set(state.rawCost.map(r => r.MC))].filter(Boolean).sort();
-      mcs.forEach(mc => {
-        const opt = document.createElement('option');
-        opt.value = mc;
-        opt.textContent = mc;
-        mcSelect.appendChild(opt);
+      buildCheckboxPanel('mc-panel', mcs, state.filters.mc, () => {
+        renderAll();
+        updateMSButtonLabel('mc-btn-label', state.filters.mc, 'All Categories');
       });
+      updateMSButtonLabel('mc-btn-label', state.filters.mc, 'All Categories');
     }
 
     function populateComboFYSelectors(fyList) {
@@ -545,36 +642,155 @@
     }
 
     function populateHeatmapMachineSelector() {
-      const sel = document.getElementById('heatmap-machine');
-      sel.innerHTML = '<option value="All">All Machines</option>';
       const machines = [...new Set(
         state.rawUtil
           .filter(r => r.FY === state.heatmapFY)
           .map(r => r.MACHINE_NO)
       )].filter(Boolean).sort();
-      machines.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = m;
-        sel.appendChild(opt);
+
+      // Reset selection to all unchecked (= show all machines)
+      state.heatmapMachines = [];
+
+      buildCheckboxPanel('hm-machine-panel', machines, state.heatmapMachines, () => {
+        renderHeatmapChart();
+        updateMSButtonLabel('hm-machine-btn-label', state.heatmapMachines, 'All Machines');
       });
-      // Reset machine filter to All whenever FY changes
-      sel.value = 'All';
-      state.heatmapMachine = 'All';
+      updateMSButtonLabel('hm-machine-btn-label', state.heatmapMachines, 'All Machines');
+    }
+
+    // ── MULTI-SELECT CHECKBOX HELPERS ────────────────────────────
+
+    // Builds a checkbox panel inside the given element ID.
+    // `values` is the list of string options; `selectedArr` is the state array (mutated in place);
+    // `onChangeFn` is called after any checkbox change.
+    function buildCheckboxPanel(panelId, values, selectedArr, onChangeFn) {
+      const panel = document.getElementById(panelId);
+      panel.innerHTML = '';
+
+      // "Select All / Clear All" toggle row
+      const allRow = document.createElement('div');
+      allRow.className = 'ms-item';
+      const allCb = document.createElement('input');
+      allCb.type = 'checkbox';
+      allCb.id = panelId + '-cb-all';
+      allCb.checked = selectedArr.length === 0;
+      const allLbl = document.createElement('label');
+      allLbl.htmlFor = allCb.id;
+      allLbl.textContent = 'All';
+      allLbl.style.cursor = 'pointer';
+      allLbl.style.flex = '1';
+      allRow.appendChild(allCb);
+      allRow.appendChild(allLbl);
+      panel.appendChild(allRow);
+
+      const divider = document.createElement('div');
+      divider.className = 'ms-divider';
+      panel.appendChild(divider);
+
+      // Individual option rows
+      values.forEach(val => {
+        const row = document.createElement('div');
+        row.className = 'ms-item';
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = val;
+        cb.id = panelId + '-cb-' + val.replace(/\s+/g, '_');
+        cb.checked = selectedArr.includes(val);
+
+        const lbl = document.createElement('label');
+        lbl.htmlFor = cb.id;
+        lbl.textContent = val;
+        lbl.style.cursor = 'pointer';
+        lbl.style.flex = '1';
+
+        cb.addEventListener('change', () => {
+          if (cb.checked) {
+            if (!selectedArr.includes(val)) selectedArr.push(val);
+          } else {
+            const idx = selectedArr.indexOf(val);
+            if (idx !== -1) selectedArr.splice(idx, 1);
+          }
+          // Sync "All" checkbox
+          allCb.checked = selectedArr.length === 0;
+          syncAllCheckbox(panel, selectedArr, values);
+          onChangeFn();
+        });
+
+        row.appendChild(cb);
+        row.appendChild(lbl);
+        panel.appendChild(row);
+      });
+
+      // "All" checkbox clears all individual selections
+      allCb.addEventListener('change', () => {
+        if (allCb.checked) {
+          selectedArr.splice(0, selectedArr.length);
+          panel.querySelectorAll('input[type="checkbox"]:not(#' + allCb.id + ')').forEach(c => {
+            c.checked = false;
+          });
+        } else {
+          // Prevent unchecking "All" without selecting anything — re-check it
+          if (selectedArr.length === 0) allCb.checked = true;
+        }
+        onChangeFn();
+      });
+    }
+
+    function syncAllCheckbox(panel, selectedArr, values) {
+      const allCb = panel.querySelector('input[type="checkbox"]:first-of-type');
+      if (allCb) allCb.checked = selectedArr.length === 0;
+    }
+
+    // Updates the visible label on a multi-select button
+    function updateMSButtonLabel(labelId, selectedArr, allLabel) {
+      const el = document.getElementById(labelId);
+      if (!el) return;
+      if (selectedArr.length === 0) {
+        el.textContent = allLabel;
+      } else if (selectedArr.length <= 2) {
+        el.textContent = selectedArr.join(', ');
+      } else {
+        el.textContent = selectedArr.slice(0, 2).join(', ') + ' (+' + (selectedArr.length - 2) + ')';
+      }
+    }
+
+    // Toggles a dropdown panel open/closed and manages aria-expanded
+    function toggleDropdown(btnId, panelId) {
+      const btn   = document.getElementById(btnId);
+      const panel = document.getElementById(panelId);
+      const isOpen = !panel.classList.contains('hidden');
+      if (isOpen) {
+        panel.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+        btn.classList.remove('open');
+      } else {
+        panel.classList.remove('hidden');
+        btn.setAttribute('aria-expanded', 'true');
+        btn.classList.add('open');
+      }
+    }
+
+    function closeAllDropdowns() {
+      [['mc-btn','mc-panel'], ['hm-machine-btn','hm-machine-panel']].forEach(([bId, pId]) => {
+        const panel = document.getElementById(pId);
+        const btn   = document.getElementById(bId);
+        if (panel) panel.classList.add('hidden');
+        if (btn) { btn.setAttribute('aria-expanded','false'); btn.classList.remove('open'); }
+      });
     }
 
     // ── DATA FILTERING ───────────────────────────────────────────
-    // Returns cost rows respecting the three global filters
     function getFilteredCost() {
       return state.rawCost.filter(r => {
         if (state.filters.fy    !== 'All' && r.FY         !== state.filters.fy)    return false;
         if (state.filters.month !== 'All' && r.MONTH_ABBR !== state.filters.month) return false;
-        if (state.filters.mc    !== 'All' && r.MC         !== state.filters.mc)    return false;
+        // mc is an array: empty = show all; non-empty = only show matching
+        if (state.filters.mc.length > 0 && !state.filters.mc.includes(r.MC))      return false;
         return true;
       });
     }
 
-    // Returns util rows respecting FY and Month global filters (MC not applicable to util data)
     function getFilteredUtil() {
       return state.rawUtil.filter(r => {
         if (state.filters.fy    !== 'All' && r.FY         !== state.filters.fy)    return false;
@@ -583,22 +799,23 @@
       });
     }
 
-    // Returns all cost rows for one specific FY, ignoring global filters (for combo chart)
+    // Returns all cost rows for one FY, ignoring global filters (used only by combo chart)
     function getCostForCombo(fy) {
-      return state.rawUtil.length && fy ? state.rawCost.filter(r => r.FY === fy) : [];
+      if (!fy) return [];
+      return state.rawCost.filter(r => r.FY === fy);
     }
 
-    // Returns util rows filtered by heatmap-specific FY and machine selectors
+    // Returns util rows for the heatmap's own FY + machine filters
     function getUtilForHeatmap() {
       return state.rawUtil.filter(r => {
         if (r.FY !== state.heatmapFY) return false;
-        if (state.heatmapMachine !== 'All' && r.MACHINE_NO !== state.heatmapMachine) return false;
+        // heatmapMachines is an array: empty = show all
+        if (state.heatmapMachines.length > 0 && !state.heatmapMachines.includes(r.MACHINE_NO)) return false;
         return true;
       });
     }
 
     // ── AGGREGATION HELPERS ──────────────────────────────────────
-    // Groups rows by MONTH_ABBR and sums the given numeric field
     function aggregateByMonth(rows, field) {
       const totals = {};
       rows.forEach(r => {
@@ -609,13 +826,11 @@
       return totals;
     }
 
-    // Converts month totals to a 12-element array aligned to FISCAL_MONTH_ORDER (0 for missing)
     function buildMonthlyArray(monthlyTotals) {
       return FISCAL_MONTH_ORDER.map(m => monthlyTotals[m] || 0);
     }
 
-    // Builds cumulative sum array; months beyond last available data point return null
-    // so ECharts does not draw a misleading flat trailing line segment
+    // Trailing months beyond last data point return null to avoid flat-line artifact
     function buildCumulativeByMonth(monthlyTotals) {
       let lastDataIdx = -1;
       FISCAL_MONTH_ORDER.forEach((m, i) => {
@@ -629,7 +844,6 @@
       });
     }
 
-    // Groups rows by MC and sums a numeric field; returns array sorted descending by value
     function aggregateByMC(rows, field) {
       const totals = {};
       rows.forEach(r => {
@@ -642,15 +856,12 @@
         .sort((a, b) => b.value - a.value);
     }
 
-    // Builds the heatmap data matrix: [xIndex (month), yIndex (machine), rate]
     function buildHeatmapMatrix(rows) {
-      // Build machine → category mapping for sort priority
       const machineToMC = {};
       rows.forEach(r => { if (r.MACHINE_NO) machineToMC[r.MACHINE_NO] = r.MC; });
 
       const machines = [...new Set(rows.map(r => r.MACHINE_NO))].filter(Boolean);
 
-      // Sort machines: first by MC_ORDER group index, then alphabetically within group
       machines.sort((a, b) => {
         const idxA = MC_ORDER.indexOf(machineToMC[a]);
         const idxB = MC_ORDER.indexOf(machineToMC[b]);
@@ -660,7 +871,6 @@
         return a.localeCompare(b);
       });
 
-      // Build lookup table: machine → month → operation rate
       const lookup = {};
       rows.forEach(r => {
         if (!r.MACHINE_NO || !r.MONTH_ABBR) return;
@@ -668,7 +878,6 @@
         lookup[r.MACHINE_NO][r.MONTH_ABBR] = r.OPERATION_RATE;
       });
 
-      // Emit [monthIdx, machineIdx, rate] triples; skip null entries (no cell rendered)
       const data = [];
       machines.forEach((machine, mi) => {
         FISCAL_MONTH_ORDER.forEach((month, moi) => {
@@ -693,6 +902,10 @@
         ? validUtil.reduce((s, r) => s + r.OPERATION_RATE, 0) / validUtil.length
         : null;
 
+      console.log('[renderKPIs] cost rows:', filteredCost.length, '| util rows:', filteredUtil.length,
+        '| totalCostSaving:', totalCostSaving, '| totalJobs:', totalJobs,
+        '| totalHours:', totalHours, '| avgUtil:', avgUtil);
+
       document.getElementById('val-cost-saving').textContent = formatLargeNumber(totalCostSaving);
       document.getElementById('val-jobs').textContent        = formatInteger(totalJobs);
       document.getElementById('val-hours').textContent       = formatLargeNumber(totalHours);
@@ -704,6 +917,9 @@
     function renderComboChart() {
       const rows1 = getCostForCombo(state.comboFY1);
       const rows2 = getCostForCombo(state.comboFY2);
+
+      console.log('[renderComboChart] FY1:', state.comboFY1, 'rows:', rows1.length,
+        '| FY2:', state.comboFY2, 'rows:', rows2.length);
 
       const monthly1 = aggregateByMonth(rows1, 'COST_CONTRIBUTION');
       const monthly2 = aggregateByMonth(rows2, 'COST_CONTRIBUTION');
@@ -961,14 +1177,17 @@
 
     function renderHeatmapChart() {
       const rows = getUtilForHeatmap();
+
+      console.log('[renderHeatmapChart] heatmapFY:', state.heatmapFY,
+        '| heatmapMachines:', state.heatmapMachines,
+        '| util rows for heatmap:', rows.length);
+
       const { machines, months, data } = buildHeatmapMatrix(rows);
 
-      // Dynamically resize the container based on number of machine rows
       const el = document.getElementById('chart-heatmap');
       const h = Math.max(420, machines.length * 30 + 130);
       el.style.height = h + 'px';
 
-      // Always dispose and reinit to correctly handle the new container height
       if (state.charts.heatmap) {
         state.charts.heatmap.dispose();
         state.charts.heatmap = null;
@@ -1068,59 +1287,80 @@
 
     // ── EVENT LISTENERS ──────────────────────────────────────────
     function attachEventListeners() {
-      // Global filter: Fiscal Year
       document.getElementById('filter-fy').addEventListener('change', e => {
         state.filters.fy = e.target.value;
         renderAll();
       });
 
-      // Global filter: Month
       document.getElementById('filter-month').addEventListener('change', e => {
         state.filters.month = e.target.value;
         renderAll();
       });
 
-      // Global filter: Machine Category
-      document.getElementById('filter-mc').addEventListener('change', e => {
-        state.filters.mc = e.target.value;
-        renderAll();
+      // MC multi-select button toggle
+      document.getElementById('mc-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        // Close heatmap machine panel first
+        document.getElementById('hm-machine-panel').classList.add('hidden');
+        document.getElementById('hm-machine-btn').setAttribute('aria-expanded', 'false');
+        document.getElementById('hm-machine-btn').classList.remove('open');
+        toggleDropdown('mc-btn', 'mc-panel');
       });
 
-      // Reset button: clear all global filters
+      // Heatmap machine multi-select button toggle
+      document.getElementById('hm-machine-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        // Close MC panel first
+        document.getElementById('mc-panel').classList.add('hidden');
+        document.getElementById('mc-btn').setAttribute('aria-expanded', 'false');
+        document.getElementById('mc-btn').classList.remove('open');
+        toggleDropdown('hm-machine-btn', 'hm-machine-panel');
+      });
+
+      // Prevent clicks inside panels from closing them
+      document.getElementById('mc-panel').addEventListener('click', e => e.stopPropagation());
+      document.getElementById('hm-machine-panel').addEventListener('click', e => e.stopPropagation());
+
+      // Close dropdowns when clicking outside
+      document.addEventListener('click', () => closeAllDropdowns());
+
+      // Reset button
       document.getElementById('btn-reset').addEventListener('click', () => {
-        state.filters = { fy: 'All', month: 'All', mc: 'All' };
+        state.filters.fy    = 'All';
+        state.filters.month = 'All';
+        state.filters.mc.splice(0, state.filters.mc.length);
+
         document.getElementById('filter-fy').value    = 'All';
         document.getElementById('filter-month').value = 'All';
-        document.getElementById('filter-mc').value    = 'All';
+
+        // Uncheck all MC checkboxes, re-check "All"
+        const mcPanel = document.getElementById('mc-panel');
+        mcPanel.querySelectorAll('input[type="checkbox"]').forEach((cb, i) => {
+          cb.checked = (i === 0); // first = "All"
+        });
+        updateMSButtonLabel('mc-btn-label', state.filters.mc, 'All Categories');
+
         renderAll();
       });
 
-      // Combo chart FY selector 1
+      // Combo chart FY selectors
       document.getElementById('combo-fy1').addEventListener('change', e => {
         state.comboFY1 = e.target.value;
         renderComboChart();
       });
-
-      // Combo chart FY selector 2
       document.getElementById('combo-fy2').addEventListener('change', e => {
         state.comboFY2 = e.target.value;
         renderComboChart();
       });
 
-      // Heatmap FY selector — also refreshes the machine dropdown
+      // Heatmap FY selector — repopulates machine dropdown
       document.getElementById('heatmap-fy').addEventListener('change', e => {
         state.heatmapFY = e.target.value;
         populateHeatmapMachineSelector();
         renderHeatmapChart();
       });
 
-      // Heatmap machine selector
-      document.getElementById('heatmap-machine').addEventListener('change', e => {
-        state.heatmapMachine = e.target.value;
-        renderHeatmapChart();
-      });
-
-      // Window resize — debounced to avoid excessive redraws
+      // Window resize
       window.addEventListener('resize', debounce(() => {
         Object.values(state.charts).forEach(chart => { if (chart) chart.resize(); });
       }, 150));
