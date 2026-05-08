@@ -12,6 +12,7 @@ import { ChartSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { CHART_COLORS } from '@/constants/chartColors';
 import { SelectDropdown } from '@/components/filters/SelectDropdown';
+import { MultiSelect } from '@/components/filters/MultiSelect';
 
 interface Props {
   costRows: CostSavingRow[];
@@ -31,10 +32,22 @@ export function CostSavingByMC({ costRows, loading }: Props) {
   const [localMonth, setLocalMonth] = useState<string>('');
   const effectiveMonth = localMonth || globalMonth || null;
 
+  // Local MC multi-select — only affects this chart
+  const allMCOptions = useMemo(
+    () => Array.from(new Set(costRows.map((r) => r.MC))).filter(Boolean).sort(),
+    [costRows]
+  );
+  const [selectedMCs, setSelectedMCs] = useState<string[]>([]);
+
   const data = useMemo(
     () => computeCostByMCComparison(costRows, fy1, fy2, effectiveMonth),
     [costRows, fy1, fy2, effectiveMonth]
   );
+
+  const displayData = useMemo(() => {
+    if (selectedMCs.length === 0) return data;
+    return data.filter((d) => selectedMCs.includes(d.mc));
+  }, [data, selectedMCs]);
 
   if (loading) return <ChartSkeleton />;
   if (!data.length) return <EmptyState />;
@@ -48,8 +61,8 @@ export function CostSavingByMC({ costRows, loading }: Props) {
             FY1 vs FY2 cost contribution comparison
           </p>
         </div>
-        {/* Local month filter — independent of other charts */}
-        <div className="flex-shrink-0">
+        {/* Local filters — independent of other charts */}
+        <div className="flex items-end gap-2 flex-wrap">
           <SelectDropdown
             label="Month (local)"
             value={localMonth}
@@ -57,12 +70,19 @@ export function CostSavingByMC({ costRows, loading }: Props) {
             onChange={setLocalMonth}
             allLabel={globalMonth ? globalMonth : 'All Months'}
           />
+          <MultiSelect
+            label="Category (local)"
+            options={allMCOptions}
+            selected={selectedMCs}
+            onChange={setSelectedMCs}
+            placeholder="All Categories"
+          />
         </div>
       </div>
 
       <div className="flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
+          <BarChart data={displayData} margin={{ top: 4, right: 8, left: 8, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis
               dataKey="mc"
