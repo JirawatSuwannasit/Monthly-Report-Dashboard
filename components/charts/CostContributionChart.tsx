@@ -72,15 +72,25 @@ export function CostContributionChart({ costRows, loading }: Props) {
     [costRows, fy1, fy2]
   );
 
+  // Series names follow the required convention and are memoized so they are
+  // always derived strictly from the current fy1/fy2 state — no stale values.
+  const seriesNames = useMemo(() => ({
+    bar1:  `${fy1} Cost Contribution`,
+    bar2:  `${fy2} Cost Contribution`,
+    line1: `${fy1} Cumulative`,
+    line2: `${fy2} Cumulative`,
+  }), [fy1, fy2]);
+
+  // Legend items derived from the same memoized object
+  const legendItems: LegendItem[] = useMemo(() => [
+    { color: CHART_COLORS.blue,   label: seriesNames.bar1,  type: 'bar',  variant: 'fy1', dashed: false },
+    { color: CHART_COLORS.orange, label: seriesNames.bar2,  type: 'bar',  variant: 'fy2', dashed: false },
+    { color: CHART_COLORS.green,  label: seriesNames.line1, type: 'line', variant: 'fy1', dashed: false },
+    { color: CHART_COLORS.purple, label: seriesNames.line2, type: 'line', variant: 'fy2', dashed: true  },
+  ], [seriesNames]);
+
   if (loading) return <ChartSkeleton />;
   if (!data.length) return <EmptyState />;
-
-  const legendItems: LegendItem[] = [
-    { color: CHART_COLORS.blue,   label: `${fy1} (Monthly)`,   type: 'bar',  variant: 'fy1', dashed: false },
-    { color: CHART_COLORS.orange, label: `${fy2} (Monthly)`,   type: 'bar',  variant: 'fy2', dashed: false },
-    { color: CHART_COLORS.green,  label: `${fy1} Cumulative`,  type: 'line', variant: 'fy1', dashed: false },
-    { color: CHART_COLORS.purple, label: `${fy2} Cumulative`,  type: 'line', variant: 'fy2', dashed: true  },
-  ];
 
   return (
     <div className="h-full flex flex-col">
@@ -92,7 +102,7 @@ export function CostContributionChart({ costRows, loading }: Props) {
           </p>
         </div>
 
-        {/* Legend — bar swatches and line swatches (solid vs dashed) */}
+        {/* Custom legend — bar swatches and SVG line swatches (solid vs dashed) */}
         <div className="flex flex-wrap gap-3 text-xs text-slate-500">
           {legendItems.map((item) => (
             <span key={item.label} className="flex items-center gap-1.5">
@@ -103,10 +113,9 @@ export function CostContributionChart({ costRows, loading }: Props) {
                   <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: item.color }} />
                 )
               ) : (
-                // Line swatch: SVG so we can render dashed accurately
-                <svg width="20" height="8" className="inline-block">
+                <svg width="22" height="8" className="inline-block flex-shrink-0">
                   <line
-                    x1="0" y1="4" x2="20" y2="4"
+                    x1="0" y1="4" x2="22" y2="4"
                     stroke={item.color}
                     strokeWidth="2"
                     strokeDasharray={item.dashed ? '5 3' : undefined}
@@ -121,7 +130,16 @@ export function CostContributionChart({ costRows, loading }: Props) {
 
       <div className="flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 4, right: 50, left: 30, bottom: 4 }}>
+          {/*
+            key forces ComposedChart to fully remount when either FY changes,
+            clearing any Recharts-internal series name cache and preventing
+            stale or concatenated legend labels.
+          */}
+          <ComposedChart
+            key={`${fy1}-${fy2}`}
+            data={data}
+            margin={{ top: 4, right: 50, left: 30, bottom: 4 }}
+          >
             <PrintPatternDefs
               fy1Id={P_FY1} fy2Id={P_FY2}
               fy1Color={CHART_COLORS.blue} fy2Color={CHART_COLORS.orange}
@@ -165,10 +183,12 @@ export function CostContributionChart({ costRows, loading }: Props) {
               }}
             />
             <Tooltip content={<CustomTooltip />} />
+
+            {/* Bar series — names match the legend items exactly */}
             <Bar
               yAxisId="left"
               dataKey="fy1"
-              name={`${fy1} (Monthly)`}
+              name={seriesNames.bar1}
               fill={printMode ? `url(#${P_FY1})` : CHART_COLORS.blue}
               stroke={printMode ? 'rgba(0,0,0,0.2)' : 'none'}
               strokeWidth={printMode ? 0.5 : 0}
@@ -178,19 +198,20 @@ export function CostContributionChart({ costRows, loading }: Props) {
             <Bar
               yAxisId="left"
               dataKey="fy2"
-              name={`${fy2} (Monthly)`}
+              name={seriesNames.bar2}
               fill={printMode ? `url(#${P_FY2})` : CHART_COLORS.orange}
               stroke={printMode ? 'rgba(0,0,0,0.2)' : 'none'}
               strokeWidth={printMode ? 0.5 : 0}
               radius={[4, 4, 0, 0]}
               maxBarSize={36}
             />
+
             {/* FY1 cumulative — solid line */}
             <Line
               yAxisId="right"
               type="monotone"
               dataKey="cumFY1"
-              name={`${fy1} Cumulative`}
+              name={seriesNames.line1}
               stroke={CHART_COLORS.green}
               strokeWidth={2.5}
               dot={{ fill: CHART_COLORS.green, r: 3, strokeWidth: 0 }}
@@ -201,7 +222,7 @@ export function CostContributionChart({ costRows, loading }: Props) {
               yAxisId="right"
               type="monotone"
               dataKey="cumFY2"
-              name={`${fy2} Cumulative`}
+              name={seriesNames.line2}
               stroke={CHART_COLORS.purple}
               strokeWidth={2.5}
               strokeDasharray="6 3"
