@@ -13,24 +13,26 @@ interface KpiRowProps {
 }
 
 export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
-  const { fy1, fy2, month } = useFilters();
+  const { fy2, month } = useFilters();
 
   const kpis = useMemo(() => {
-    // Combine rows for both selected fiscal years
-    const fy1Cost = filterCostRows(costRows, fy1 || null, month || null);
+    // All three metric cards are scoped to FY2 only
     const fy2Cost = filterCostRows(costRows, fy2 || null, month || null);
-    const combinedCost = fy1 === fy2 ? fy1Cost : [...fy1Cost, ...fy2Cost];
-
     const fy2Util = filterUtilRows(utilRows, fy2 || null, month || null, []);
-    return computeKpis(combinedCost, fy2Util);
-  }, [costRows, utilRows, fy1, fy2, month]);
+    return computeKpis(fy2Cost, fy2Util);
+  }, [costRows, utilRows, fy2, month]);
+
+  // Card title prefix updates live when the FY2 dropdown changes
+  const fyLabel = fy2 || 'FY2';
+  // Thai UI label shown as subtitle on the three FY2-scoped cards
+  const fy2Subtitle = 'FYที่เลือก ใน FY2';
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard
-        title="Total Cost Saving"
+        title={`${fyLabel} Cost Saving`}
         value={formatCurrency(kpis.totalCostSaving)}
-        subtitle={`FY1 + FY2 combined`}
+        subtitle={fy2Subtitle}
         loading={loading}
         accentColor="bg-blue-50 text-blue-700"
         icon={
@@ -40,9 +42,9 @@ export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
         }
       />
       <KpiCard
-        title="Total Testing Jobs"
+        title={`${fyLabel} Testing Jobs`}
         value={formatNumber(kpis.totalJobs)}
-        subtitle="FY1 + FY2 combined"
+        subtitle={fy2Subtitle}
         loading={loading}
         accentColor="bg-orange-50 text-orange-600"
         icon={
@@ -52,9 +54,9 @@ export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
         }
       />
       <KpiCard
-        title="Total Operating Hours"
+        title={`${fyLabel} Operating Hours`}
         value={`${formatNumber(Math.round(kpis.totalHours))} hrs`}
-        subtitle="FY1 + FY2 combined"
+        subtitle={fy2Subtitle}
         loading={loading}
         accentColor="bg-emerald-50 text-emerald-600"
         icon={

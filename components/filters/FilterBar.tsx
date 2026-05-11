@@ -9,6 +9,7 @@ export function FilterBar() {
     fy2, setFY2,
     month, setMonth,
     fyOptions, monthOptions,
+    printMode, setPrintMode,
   } = useFilters();
 
   return (
@@ -43,6 +44,32 @@ export function FilterBar() {
             onChange={setMonth}
             allLabel="All Months"
           />
+
+          {/* Print mode toggle: switches bar charts to colored texture fills */}
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+              Print Mode
+            </span>
+            <button
+              onClick={() => setPrintMode(!printMode)}
+              aria-pressed={printMode}
+              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                printMode
+                  ? 'bg-slate-800 text-white border-slate-800'
+                  : 'bg-white text-slate-600 border-slate-300 hover:border-slate-500'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                />
+              </svg>
+              {printMode ? 'Texture ON' : 'Texture OFF'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

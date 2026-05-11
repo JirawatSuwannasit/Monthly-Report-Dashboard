@@ -9,6 +9,7 @@ import { CostContributionChart } from '@/components/charts/CostContributionChart
 import { CostSavingByMC } from '@/components/charts/CostSavingByMC';
 import { JobByMC } from '@/components/charts/JobByMC';
 import { UtilizationHeatmap } from '@/components/charts/UtilizationHeatmap';
+import { CostDonut } from '@/components/charts/CostDonut';
 import { uniqueValues } from '@/lib/dataUtils';
 
 function ChartCard({
@@ -92,12 +93,12 @@ export function Dashboard() {
           </div>
         </header>
 
-        {/* Sticky global filter bar: FY1, FY2, Month */}
+        {/* Sticky global filter bar: FY1, FY2, Month, Print Mode */}
         <FilterBar />
 
         {/* Dashboard content */}
         <main className="max-w-screen-2xl mx-auto px-6 py-6 flex flex-col gap-6">
-          {/* KPI summary row */}
+          {/* KPI summary row — titles and data are scoped to FY2 */}
           <KpiRow costRows={costSaving} utilRows={utilization} loading={loading} />
 
           {/* Cost Contribution — full width, dual bars + dual cumulative lines */}
@@ -105,13 +106,35 @@ export function Dashboard() {
             <CostContributionChart costRows={costSaving} loading={loading} />
           </ChartCard>
 
-          {/* Comparison bar charts — FY1 vs FY2, with local month override */}
+          {/* FY1 vs FY2 comparison bar charts with local month + MC filters */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <ChartCard className="h-80">
               <CostSavingByMC costRows={costSaving} loading={loading} />
             </ChartCard>
             <ChartCard className="h-80">
               <JobByMC costRows={costSaving} loading={loading} />
+            </ChartCard>
+          </div>
+
+          {/* Donut charts — Cost proportion by Factory and by MC (global FY2 + Month) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <ChartCard className="h-80">
+              <CostDonut
+                costRows={costSaving}
+                loading={loading}
+                groupBy="FACTORY"
+                title="Cost Contribution by Factory"
+                subtitle="Proportion of cost savings across factories"
+              />
+            </ChartCard>
+            <ChartCard className="h-80">
+              <CostDonut
+                costRows={costSaving}
+                loading={loading}
+                groupBy="MC"
+                title="Cost Contribution by MC"
+                subtitle="Proportion of cost savings across machine categories"
+              />
             </ChartCard>
           </div>
 

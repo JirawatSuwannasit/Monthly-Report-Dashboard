@@ -56,3 +56,9 @@ export interface HeatmapCell {
   month: string;
   value: number | null;
 }
+
+export interface DonutSlice {
+  name: string;
+  value: number;
+  percentage: number;
+}

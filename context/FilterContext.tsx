@@ -13,6 +13,8 @@ interface FilterContextValue {
   setMonth: (v: string) => void;
   fyOptions: string[];
   monthOptions: string[];
+  printMode: boolean;
+  setPrintMode: (v: boolean) => void;
 }
 
 const FilterContext = createContext<FilterContextValue | null>(null);
@@ -25,10 +27,10 @@ interface FilterProviderProps {
 }
 
 export function FilterProvider({ children, costRows, utilRows, allFYs }: FilterProviderProps) {
-  // Default fy1/fy2 to the last two available fiscal years
   const [fy1, setFY1] = useState<string>(() => allFYs[allFYs.length - 2] || allFYs[0] || '');
   const [fy2, setFY2] = useState<string>(() => allFYs[allFYs.length - 1] || '');
   const [month, setMonth] = useState<string>('');
+  const [printMode, setPrintMode] = useState<boolean>(false);
 
   const fyOptions = useMemo(() => allFYs, [allFYs]);
 
@@ -43,7 +45,7 @@ export function FilterProvider({ children, costRows, utilRows, allFYs }: FilterP
 
   return (
     <FilterContext.Provider
-      value={{ fy1, fy2, month, setFY1, setFY2, setMonth, fyOptions, monthOptions }}
+      value={{ fy1, fy2, month, setFY1, setFY2, setMonth, fyOptions, monthOptions, printMode, setPrintMode }}
     >
       {children}
     </FilterContext.Provider>
