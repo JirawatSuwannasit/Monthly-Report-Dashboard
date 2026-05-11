@@ -24,15 +24,13 @@ export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
 
   // Card title prefix updates live when the FY2 dropdown changes
   const fyLabel = fy2 || 'FY2';
-  // Thai UI label shown as subtitle on the three FY2-scoped cards
-  const fy2Subtitle = 'FYที่เลือก ใน FY2';
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard
-        title={`${fyLabel} Cost Saving`}
+        title="Total Cost Saving"
         value={formatCurrency(kpis.totalCostSaving)}
-        subtitle={fy2Subtitle}
+        subtitle={`${fyLabel} Cost Saving`}
         loading={loading}
         accentColor="bg-blue-50 text-blue-700"
         icon={
@@ -42,9 +40,9 @@ export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
         }
       />
       <KpiCard
-        title={`${fyLabel} Testing Jobs`}
+        title="Total Testing Jobs"
         value={formatNumber(kpis.totalJobs)}
-        subtitle={fy2Subtitle}
+        subtitle={`${fyLabel} Testing Jobs`}
         loading={loading}
         accentColor="bg-orange-50 text-orange-600"
         icon={
@@ -54,9 +52,9 @@ export function KpiRow({ costRows, utilRows, loading }: KpiRowProps) {
         }
       />
       <KpiCard
-        title={`${fyLabel} Operating Hours`}
+        title="Total Operating Hours"
         value={`${formatNumber(Math.round(kpis.totalHours))} hrs`}
-        subtitle={fy2Subtitle}
+        subtitle={`${fyLabel} Operating Hours`}
         loading={loading}
         accentColor="bg-emerald-50 text-emerald-600"
         icon={
